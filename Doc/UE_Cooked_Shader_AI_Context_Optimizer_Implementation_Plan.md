@@ -925,6 +925,51 @@ manifest AgentWorkspace.Target.RenderingPath == Deferred
 
 This phase prevents a fresh AI Agent from starting with raw `shaders/*.dxil.ll` or missing the Unity 6 URP Deferred + DOTS reconstruction contract.
 
+## Phase 15 - Texture Register and Channel Evidence Hardening
+
+Improve the weak point where DXIL exposes anonymous texture registers and channel semantics are only name-based candidates.
+
+Implementation goals:
+
+```text
+dxil_resource_usage.json:
+  texture operations include ChannelFlows
+  each ChannelFlow records channel, downstream semantic candidate, output targets, consumer ops, line numbers, evidence, confidence, EvidenceLevel
+
+texture_register_candidates.json:
+  register-to-parameter scoring combines:
+    parameter TextureIndex vs register index
+    texture parameter/name evidence
+    texture asset metadata hints
+    DXIL channel usage
+    DXIL dataflow semantic compatibility
+
+texture_channel_semantics.json:
+  each channel includes EvidenceLevel
+  each channel includes DxilUses with register, shader, downstream semantic, output targets, confidence and evidence
+
+semantic_binding_map.json:
+  KnownUnknowns explicitly state that dxil_dataflow_supported proves cooked channel usage/dataflow, not UE source graph intent
+```
+
+Evidence levels:
+
+```text
+dxil_dataflow_supported:
+  cooked DXIL proves this channel is consumed and dataflow was classified, often reaching MRT/GBuffer-like outputs
+
+dxil_usage_only:
+  cooked DXIL proves channel consumption, but downstream semantic is not strongly classified
+
+name_inferred:
+  parameter or texture name suggests meaning, without strong dataflow support
+
+unknown:
+  no useful evidence
+```
+
+This phase should improve Unity reconstruction accuracy without pretending anonymous DXIL registers are source-level UE material graph nodes.
+
 ## Golden Case Acceptance
 
 For `M_Character_Teeth.bundle`, expected result:

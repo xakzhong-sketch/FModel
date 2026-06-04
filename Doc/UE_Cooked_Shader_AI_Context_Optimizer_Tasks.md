@@ -1018,9 +1018,67 @@ context-only: Agent workspace docs: updated
 context-only: Verify: OK
 ```
 
+## Task 16 - Texture register and channel evidence hardening
+
+Status: DONE
+
+目的：降低 Unity shader 还原时“贴图寄存器匿名、通道语义只是候选”带来的误判风险。输出不声称源码级证明，而是把 cooked DXIL dataflow、贴图 asset metadata、材质参数命名和 register 候选评分合并成更强的证据链。
+
+Implemented files:
+
+```text
+CUE4Parse/CUE4Parse.ShaderBundleExporter/Models/SemanticModels.cs
+CUE4Parse/CUE4Parse.ShaderBundleExporter/Exporter/Semantic/DxilLlParser.cs
+CUE4Parse/CUE4Parse.ShaderBundleExporter/Exporter/Semantic/DxilResourceUsageAnalyzer.cs
+CUE4Parse/CUE4Parse.ShaderBundleExporter/Exporter/Semantic/SemanticUsageAnalyzers.cs
+CUE4Parse/CUE4Parse.ShaderBundleExporter/Exporter/Semantic/SemanticBindingMapAggregator.cs
+CUE4Parse/CUE4Parse.ShaderBundleExporter/Exporter/AgentWorkspaceWriter.cs
+```
+
+New output detail:
+
+```text
+analysis/dxil_resource_usage.json:
+  TextureOperations[].ChannelFlows[]
+  Channel, DownstreamSemantic, EvidenceLevel, OutputTargets, ConsumerOps, LineNumbers, Confidence, Evidence
+
+analysis/texture_register_candidates.json:
+  candidate confidence now includes DXIL dataflow semantic compatibility with texture parameter/asset metadata
+
+analysis/texture_channel_semantics.json:
+  Channels.<rgba>.EvidenceLevel
+  Channels.<rgba>.DxilUses[]
+  DxilUses include Register, ShaderFile, Stage, DownstreamSemantic, OutputTargets, ConsumerOps, Confidence, Evidence
+
+analysis/semantic_binding_map.json:
+  KnownUnknowns clarifies that dxil_dataflow_supported proves cooked DXIL usage/dataflow, not original UE source graph intent
+```
+
+EvidenceLevel contract:
+
+```text
+dxil_dataflow_supported = cooked DXIL proves channel usage/dataflow and a semantic candidate was classified
+dxil_usage_only = cooked DXIL proves the channel is consumed, but semantic remains weak
+name_inferred = parameter/texture naming suggests semantic
+unknown = no useful evidence
+```
+
+Verified command:
+
+```powershell
+dotnet build CUE4Parse\CUE4Parse.ShaderBundleExporter\CUE4Parse.ShaderBundleExporter.csproj -c Release
+```
+
+Observed result:
+
+```text
+Build succeeded.
+0 Error(s)
+```
+
 ## Completion Evidence
 
-Status as of 2026-06-04: Task 00-14 已在 `CUE4Parse/CUE4Parse.ShaderBundleExporter` 实现并通过 golden case 验证。
+Status as of 2026-06-04: Task 00-16 已在 `CUE4Parse/CUE4Parse.ShaderBundleExporter` 实现。Task 00-15 已通过 golden case 或 bundle 验证；Task 16 已通过 build 验证，未按用户要求刷新 `D:\ShaderWP\NewTest`。
 
 Verified commands:
 
@@ -1073,6 +1131,7 @@ Task 12
 Task 13
 Task 14
 Task 15
+Task 16
 ```
 
 ## Minimal Useful Milestone
