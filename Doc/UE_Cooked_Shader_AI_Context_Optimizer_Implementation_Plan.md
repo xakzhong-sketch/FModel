@@ -28,6 +28,7 @@ analysis/gbuffer_semantics.json
 analysis/dxil_resource_usage.json
 analysis/uniform_buffer_usage.json
 analysis/texture_register_candidates.json
+analysis/texture_register_statistics.json
 analysis/texture_channel_semantics.json
 analysis/shader_type_info.json
 shaders/*.dxil.ll
@@ -938,18 +939,37 @@ dxil_resource_usage.json:
 
 texture_register_candidates.json:
   register-to-parameter scoring combines:
-    parameter TextureIndex vs register index
+    parameter TextureIndex vs register index as reduced weak evidence when material_shader_metadata_probe has no strong resource map
     texture parameter/name evidence
     texture asset metadata hints
     DXIL channel usage
     DXIL dataflow semantic compatibility
+    UniformExpressionSet slot order as auxiliary evidence, not a t# binding
+    semantic conflict penalty, for example Mask/OAE-like parameter vs normal-like DXIL dataflow
+
+texture_register_statistics.json:
+  aggregates candidate confidence across shader files / variants
+  reports per-parameter top consensus registers and per-register candidate distributions
+  uses EvidenceLevel=cross_shader_variant_candidate
+  improves ranking but does not claim source-level UE parameter bindings
 
 texture_channel_semantics.json:
   each channel includes EvidenceLevel
   each channel includes DxilUses with register, shader, downstream semantic, output targets, confidence and evidence
+  DxilUses are not propagated when the named texture parameter conflicts with the downstream dataflow semantic
+
+material_shader_metadata_probe.json:
+  records whether cooked UniformExpressionSet, shader ParameterMapInfo, Bindings, and shader archive metadata contain a stronger static resource map
+  emits StrongTextureRegisterMapAvailable=false when only uniform-expression order is available
+  lists material uniform buffer SRV/sampler offsets as evidence, but does not promote them to DXIL t# bindings
 
 semantic_binding_map.json:
   KnownUnknowns explicitly state that dxil_dataflow_supported proves cooked channel usage/dataflow, not UE source graph intent
+  KnownUnknowns explicitly state that conflicting evidence remains register-candidate evidence, not confirmed named texture channel semantics
+  KnownUnknowns explicitly state that texture_register_statistics is statistical evidence only
+
+shader_type_info.json:
+  if .stinfo has no useful readable shader type / permutation strings, Reason and UnsupportedSections must say that role candidates are stage-derived only
 ```
 
 Evidence levels:
@@ -969,6 +989,7 @@ unknown:
 ```
 
 This phase should improve Unity reconstruction accuracy without pretending anonymous DXIL registers are source-level UE material graph nodes.
+It should also avoid promoting contradictory candidates, such as Mask/OAE-like parameters with normal-like dataflow, into Unity texture semantics.
 
 ## Golden Case Acceptance
 
@@ -979,6 +1000,7 @@ verify-only returns Verify: OK
 analysis/variant_inventory.json exists
 analysis/shader_similarity_groups.json exists
 analysis/reconstruction_entrypoints.json exists
+analysis/texture_register_statistics.json exists
 analysis/variant_diff_summary.json exists
 analysis/deferred_lighting_policy.json exists
 analysis/lightpass_candidates.json exists

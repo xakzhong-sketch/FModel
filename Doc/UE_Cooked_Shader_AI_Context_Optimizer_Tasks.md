@@ -1044,14 +1044,22 @@ analysis/dxil_resource_usage.json:
 
 analysis/texture_register_candidates.json:
   candidate confidence now includes DXIL dataflow semantic compatibility with texture parameter/asset metadata
+  semantic conflicts, such as Mask/OAE-like parameter vs normal-like dataflow, reduce confidence and remain candidate evidence
 
 analysis/texture_channel_semantics.json:
   Channels.<rgba>.EvidenceLevel
   Channels.<rgba>.DxilUses[]
   DxilUses include Register, ShaderFile, Stage, DownstreamSemantic, OutputTargets, ConsumerOps, Confidence, Evidence
+  DxilUses are not propagated when parameter naming/texture metadata strongly conflicts with the downstream DXIL semantic
+
+analysis/material_shader_metadata_probe.json:
+  records UniformExpressionSet texture parameter groups, UniformBufferLayoutInitializer resource slots, shader ParameterMapInfo/Bindings summary, and shader archive metadata summary
+  StrongTextureRegisterMapAvailable=false means UniformExpressionSet order must not be treated as a source-level t# binding
+  InferredMaterialResourceSlots may list material uniform buffer SRV/sampler offsets, but CanBindToDxilRegister=false unless shader-side resource parameters are present
 
 analysis/semantic_binding_map.json:
   KnownUnknowns clarifies that dxil_dataflow_supported proves cooked DXIL usage/dataflow, not original UE source graph intent
+  KnownUnknowns clarifies that contradictory register evidence is not confirmed named texture channel semantics
 ```
 
 EvidenceLevel contract:
@@ -1063,10 +1071,72 @@ name_inferred = parameter/texture naming suggests semantic
 unknown = no useful evidence
 ```
 
+Regression expectation:
+
+```text
+M_Character_Teeth Mask/OAE channels must not be promoted to normal_channel_candidate solely from normal-like DXIL register dataflow.
+NRO may keep normal-channel evidence when the concrete register candidate and normal-like dataflow agree.
+BC.rgb may remain name_inferred if no compatible base-color DXIL channel use is found.
+```
+
+## Task 17 - Texture register consensus and metadata evidence refinement
+
+Status: DONE
+
+目的：继续降低匿名 `t#` 映射误判。重点是把 UniformExpressionSet / TextureIndex 降级为弱证据，把跨 shader / variant 的候选稳定性单独输出给 AI Agent，并让 `.stinfo` 无可读名时明确说明只剩 stage-derived role。
+
+Implemented files:
+
+```text
+CUE4Parse/CUE4Parse.ShaderBundleExporter/Exporter/Semantic/SemanticUsageAnalyzers.cs
+CUE4Parse/CUE4Parse.ShaderBundleExporter/Exporter/Semantic/ShaderTypeInfoSemanticExporter.cs
+CUE4Parse/CUE4Parse.ShaderBundleExporter/Exporter/Semantic/SemanticBindingMapAggregator.cs
+CUE4Parse/CUE4Parse.ShaderBundleExporter/Exporter/SemanticAnalysisPipeline.cs
+CUE4Parse/CUE4Parse.ShaderBundleExporter/Exporter/AIContext/AiContextPackWriter.cs
+CUE4Parse/CUE4Parse.ShaderBundleExporter/Exporter/AgentWorkspaceWriter.cs
+CUE4Parse/CUE4Parse.ShaderBundleExporter/Exporter/BundleVerifier.cs
+```
+
+New / changed output detail:
+
+```text
+analysis/texture_register_candidates.json:
+  TextureIndex == t# now receives a reduced boost when material_shader_metadata_probe reports StrongTextureRegisterMapAvailable=false
+  UniformExpressionSet slot / SRV offset evidence is included as auxiliary evidence
+  slot-order evidence does not bind material parameters to DXIL t# registers
+
+analysis/texture_register_statistics.json:
+  new output
+  aggregates candidate confidence across shader files / variants
+  records per-parameter TopConsensusRegister and per-register CandidateParameters
+  EvidenceLevel=cross_shader_variant_candidate
+  used for ranking only, not source-level UE binding proof
+
+analysis/shader_type_info.json:
+  if .stinfo files have no useful readable shader type / permutation strings, Reason and UnsupportedSections explicitly say shader roles are stage-only candidates
+
+analysis/ai_context_pack.json / AGENTS.md / WORKFLOW.md:
+  recommended read order includes texture_register_statistics.json
+  instructions warn that cross-variant consensus is still statistical evidence
+```
+
+Regression expectation:
+
+```text
+Mask/OAE must not become a normal map only because t# dataflow is normal-like.
+TextureIndex/UniformExpressionSet order may help rank candidates, but cannot override semantic conflicts.
+NRO should receive stronger support only where normal-like DXIL dataflow and parameter/asset metadata agree.
+AI Agent should read texture_register_statistics.json before opening raw DXIL for binding questions.
+```
+
 Verified command:
 
 ```powershell
 dotnet build CUE4Parse\CUE4Parse.ShaderBundleExporter\CUE4Parse.ShaderBundleExporter.csproj -c Release
+
+dotnet run --project CUE4Parse\CUE4Parse.ShaderBundleExporter\CUE4Parse.ShaderBundleExporter.csproj -c Release -- --semantic-only D:\ShaderWP\NewTest --verbose
+
+dotnet run --project CUE4Parse\CUE4Parse.ShaderBundleExporter\CUE4Parse.ShaderBundleExporter.csproj -c Release -- --verify-only D:\ShaderWP\NewTest --verbose
 ```
 
 Observed result:
@@ -1074,11 +1144,17 @@ Observed result:
 ```text
 Build succeeded.
 0 Error(s)
+semantic-only: texture-register-statistics pass completed
+semantic-only: Agent workspace docs updated
+semantic-only: Verify: OK
+verify-only: Verify: OK
+NewTest shader_type_info Reason explicitly reports no useful readable .stinfo shader type/permutation strings
+NewTest texture_register_statistics.json exists
 ```
 
 ## Completion Evidence
 
-Status as of 2026-06-04: Task 00-16 已在 `CUE4Parse/CUE4Parse.ShaderBundleExporter` 实现。Task 00-15 已通过 golden case 或 bundle 验证；Task 16 已通过 build 验证，未按用户要求刷新 `D:\ShaderWP\NewTest`。
+Status as of 2026-06-04: Task 00-17 已在 `CUE4Parse/CUE4Parse.ShaderBundleExporter` 实现并通过 `D:\ShaderWP\NewTest` bundle 验证。
 
 Verified commands:
 
