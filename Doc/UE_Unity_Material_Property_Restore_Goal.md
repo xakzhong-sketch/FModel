@@ -20,6 +20,20 @@ Preferred forms:
 /Goal D:\Github\FModel\Doc\UE_Unity_Material_Property_Restore_Goal.md Apply Mat=K:\Project\Assets\...\MI_Name.mat Bundle=D:\ShaderWP\MI_Name.bundle
 
 /Goal D:\Github\FModel\Doc\UE_Unity_Material_Property_Restore_Goal.md DryRun current directory
+
+/Goal D:\Github\FModel\Doc\UE_Unity_Material_Property_Restore_Goal.md Mat=K:\Project\Assets\...\MI_Name.mat ExportMissingTextures
+```
+
+Hard safety rule:
+
+```text
+Apply Token Gate:
+  Only run a command with --apply when the user's current /Goal invocation contains the standalone token Apply.
+  Any --apply command must also pass --apply-confirm WRITE_MAT; otherwise the script must fail.
+  Mat=... alone is always DryRun.
+  "restore", "还原", "恢复", "处理", "fix", or "update" must not be interpreted as Apply.
+  A clean DryRun report must not automatically trigger Apply.
+  After DryRun, stop and report the dry-run result. The user must start a new explicit Apply invocation before any .mat write.
 ```
 
 Argument rules:
@@ -33,9 +47,13 @@ Bundle=...
 
 Apply
   Actually write the .mat file. Do not apply before a dry-run report looks correct.
+  This is valid only when the user's current /Goal invocation includes the standalone token Apply.
+  The Python command must include both --apply and --apply-confirm WRITE_MAT.
+  Do not infer Apply from Mat=..., from the word restore/还原/恢复, or from a successful DryRun.
 
 DryRun
   Default mode. Generates a report only and does not modify the .mat file.
+  If neither Apply nor ExportMissingTextures is present, this is the only allowed mode.
 
 AssetsRoot=...
   Optional search root for Unity texture .meta files. If omitted, use the nearest parent named Assets from Mat.
@@ -51,6 +69,7 @@ CreateIfMissing
   Optional. Create a new Unity .mat when Mat does not exist.
   Requires Apply plus ShaderMeta or ShaderGuid.
   Use this when shader reuse says an MI should share an existing shader but no Unity material file exists yet.
+  Never use CreateIfMissing during a Mat=... only invocation.
 
 ShaderMeta=...
   Optional Unity .shader.meta file for the assigned/reused shader.
@@ -58,6 +77,18 @@ ShaderMeta=...
 
 ShaderGuid=...
   Optional direct Unity shader GUID. Prefer ShaderMeta when the .meta file is available.
+
+ExportMissingTextures
+  Optional restore-stage sub-step. If DryRun reports MissingTextureGuids, export only those missing UE cooked textures listed by MissingTextureExportCandidates.
+  This must not be combined with Apply and must not modify the .mat file.
+
+TextureOut=...
+  Optional Unity Assets-relative output folder for ExportMissingTextures.
+  Default expectation: Assets/Art/Recovered/Subnautica2
+
+RestoreReport=...
+  Optional existing dry-run report for ExportMissingTextures.
+  If omitted, run DryRun first and use the newly generated report.
 ```
 
 If invoked from a material workspace directory:
@@ -67,6 +98,27 @@ If invoked from a material workspace directory:
 2. If ROOT_DIR contains exactly one *.bundle directory, use it as Bundle.
 3. If ROOT_DIR contains exactly one *.mat file, use it as Mat.
 4. If multiple bundles or mats exist, ask the user which one to use.
+```
+
+When `ExportMissingTextures` is requested from a workspace directory:
+
+```text
+1. Resolve Bundle from the current directory using the same rules above.
+2. Run or locate a DryRun restore report for Mat + Bundle.
+3. Read MissingTextureExportCandidates from that report.
+4. Use Source.Game, Source.Paks, and Source.Mapping from Bundle\manifest.json.
+5. Call CUE4Parse.ShaderBundleExporter --export-missing-unity-textures.
+6. Do not pass --apply to unity_material_apply_ue_params.py in this sub-step.
+```
+
+When neither `Apply` nor `ExportMissingTextures` is present:
+
+```text
+1. Run exactly one DryRun restore command.
+2. The Python command must not include --apply, --create-if-missing, or --no-backup.
+3. Write the JSON report.
+4. Stop after reporting the result.
+5. Do not proceed to Apply even if MissingTextureGuids=0, SkippedMissingUnityProperties=0, and Collisions is empty.
 ```
 
 ## Preconditions
@@ -90,6 +142,8 @@ The restore script defaults to updating existing Unity properties only. Missing 
 
 For a new MI that reuses an existing shader, create the material with:
 
+Only use this command when the user explicitly invoked this Goal with `Apply` and requested creation of a missing material.
+
 ```powershell
 python CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_material_apply_ue_params.py `
   --mat "UNITY_MAT" `
@@ -99,6 +153,7 @@ python CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_material_apply_ue_pa
   --add-missing `
   --create-if-missing `
   --apply `
+  --apply-confirm WRITE_MAT `
   --report-out "REPORT_OUT"
 ```
 
@@ -129,6 +184,8 @@ python CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_material_apply_ue_pa
   --report-out "REPORT_OUT"
 ```
 
+This is the required command category for `/Goal ... Mat=...` when `Apply` is absent. Do not append `--apply`.
+
 Optional faster texture GUID search:
 
 ```powershell
@@ -143,7 +200,7 @@ python CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_material_apply_ue_pa
 Dry-run output should say:
 
 ```text
-Dry run only. Re-run with --apply to write the .mat file.
+Dry run only. Re-run with --apply --apply-confirm WRITE_MAT to write the .mat file.
 Report: ...
 Matched: N, Added: 0, MissingTextureGuids: 0
 ```
@@ -189,6 +246,16 @@ SkippedMissingUnityProperties
 MissingTextureGuids
   Texture parameters whose Unity .meta GUID could not be resolved. Fix texture imports/search roots before applying.
 
+TextureExportNeeded
+  True when the dry-run report contains missing texture export candidates.
+
+MissingTextureExportCandidates
+  Deduplicated UE cooked textures that can be exported from the original game data.
+  These are generated only for unresolved Unity texture GUIDs and contain ObjectPath, TextureName, ImportIntent, ColorSpace, and suggested Unity output path.
+
+TextureExportCommandHint
+  Suggested C# exporter command. Treat this as a command shape; verify paths before running.
+
 AddMissing
   Must be false for the normal restore flow.
 
@@ -208,6 +275,14 @@ This matters because `NumericParameters` can contain repeated names from multipl
 
 Only apply after the dry-run report is correct:
 
+The user must explicitly invoke:
+
+```text
+/Goal D:\Github\FModel\Doc\UE_Unity_Material_Property_Restore_Goal.md Apply Mat=... Bundle=...
+```
+
+If the current invocation did not contain `Apply`, do not run this command.
+
 ```powershell
 python CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_material_apply_ue_params.py `
   --mat "UNITY_MAT" `
@@ -215,7 +290,8 @@ python CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_material_apply_ue_pa
   --layer-aware `
   --assign-shader-meta "ASSIGNED_SHADER.shader.meta" `
   --report-out "REPORT_OUT" `
-  --apply
+  --apply `
+  --apply-confirm WRITE_MAT
 ```
 
 By default the script creates a timestamped backup next to the `.mat`:
@@ -225,6 +301,45 @@ MI_Name.mat.bak_YYYYMMDD_HHMMSS
 ```
 
 Use `--no-backup` only for disposable test files.
+
+## Optional: Export Missing Textures
+
+Use this only after DryRun reports `MissingTextureGuids` and the report contains `MissingTextureExportCandidates`.
+
+Do not run this during `PROMPT_NEXT_SESSION.md` shader reconstruction. Do not combine it with `Apply`.
+
+Command shape:
+
+```powershell
+dotnet run --project CUE4Parse\CUE4Parse.ShaderBundleExporter\CUE4Parse.ShaderBundleExporter.csproj -c Release -- `
+  --export-missing-unity-textures `
+  --game "GAME_FROM_BUNDLE_MANIFEST" `
+  --paks "PAKS_FROM_BUNDLE_MANIFEST" `
+  --mapping "MAPPING_FROM_BUNDLE_MANIFEST" `
+  --bundle "BUNDLE_DIR" `
+  --restore-report "DRYRUN_REPORT.json" `
+  --unity-assets-root "K:\Project\Assets" `
+  --texture-out "Assets/Art/Recovered/Subnautica2"
+```
+
+Output:
+
+```text
+<Bundle>\unity_missing_texture_export_report.json
+<UnityAssetsRoot>\<TextureOut>\Game\...\TextureName.png
+<UnityAssetsRoot>\<TextureOut>\Game\...\TextureName.png.ue_texture_export.json
+```
+
+Rules:
+
+```text
+1. Export only textures listed in MissingTextureExportCandidates.
+2. Existing texture files are skipped unless --overwrite-textures is explicit.
+3. The command never modifies Unity .mat files.
+4. Sidecar JSON records UE ObjectPath, ImportIntent, ColorSpace, and property usage.
+5. After Unity imports the exported textures and creates .meta files, rerun DryRun.
+6. Apply only after MissingTextureGuids is empty or the remaining missing textures are explicitly accepted.
+```
 
 ## Test Example
 
@@ -267,7 +382,8 @@ The task is complete only when:
 2. MatchedProperties contains the expected UE-to-Unity property mappings.
 3. For Material Layer bundles, MatchedByStableKey covers the expected layer/blend/core properties and Collisions is empty.
 4. MissingTextureGuids is empty, or unresolved textures are explicitly accepted.
-5. SkippedMissingUnityProperties is reviewed and either fixed in the Unity shader/material or accepted as intentionally omitted.
-6. If Apply was requested, the .mat is updated and a .bak file exists unless --no-backup was explicitly used.
-7. Final response reports Mat, Bundle, report path, matched count, StableKey count, legacy fallback count, skipped count, missing texture GUID count, and whether Apply was used.
+5. If MissingTextureGuids was not accepted, ExportMissingTextures was run, Unity imported the exported files, and a second DryRun can resolve the new texture GUIDs.
+6. SkippedMissingUnityProperties is reviewed and either fixed in the Unity shader/material or accepted as intentionally omitted.
+7. If Apply was requested, the .mat is updated and a .bak file exists unless --no-backup was explicitly used.
+8. Final response reports Mat, Bundle, report path, matched count, StableKey count, legacy fallback count, skipped count, missing texture GUID count, texture export count if used, and whether Apply was used.
 ```

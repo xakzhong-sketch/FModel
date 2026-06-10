@@ -4,6 +4,15 @@ Objective: use `CUE4Parse.ShaderBundleExporter` tools in `D:\Github\FModel` to c
 
 Do not reconstruct a Unity shader in this task. Only read the RenderDoc export, generate compact summary files, optionally match RenderDoc shader bytecode against an existing UE cooked shader bundle, and report the result.
 
+Responsibility boundary:
+
+```text
+RenderDoc/qrenderdoc exports raw drawcall data only.
+FModel renderdoc_compact_summary.py performs CPD/SVT/GBuffer/shader IO compact analysis.
+```
+
+Do not add or run CPD/SVT/GBuffer analysis inside the RenderDoc export tool. If Streaming Virtual Texturing is present, keep it as runtime evidence and do not try to port UE page-table indirection or feedback UAV writes into the Unity material shader.
+
 ## How To Invoke This Goal
 
 Preferred forms:
@@ -201,6 +210,16 @@ The output directory should contain:
 ```text
 renderdoc_runtime_overlay.md
 renderdoc_runtime_overlay.json
+renderdoc_material_runtime_evidence.md
+renderdoc_material_runtime_evidence.json
+renderdoc_shader_io_summary.md
+renderdoc_shader_io_summary.json
+renderdoc_cpd_summary.md
+renderdoc_cpd_summary.json
+renderdoc_svt_summary.md
+renderdoc_svt_summary.json
+renderdoc_gbuffer_outputs.md
+renderdoc_gbuffer_outputs.json
 renderdoc_shader_match.json
 renderdoc_texture_slot_map.json
 renderdoc_sampler_slot_map.json
@@ -245,6 +264,12 @@ RenderDoc export AGENTS.md
 RenderDoc export shader_reconstruction_index.json
 OUT_DIR/renderdoc_runtime_overlay.md
 OUT_DIR/renderdoc_runtime_overlay.json
+OUT_DIR/renderdoc_material_runtime_evidence.md
+OUT_DIR/renderdoc_material_runtime_evidence.json
+OUT_DIR/renderdoc_shader_io_summary.json
+OUT_DIR/renderdoc_cpd_summary.json
+OUT_DIR/renderdoc_svt_summary.json
+OUT_DIR/renderdoc_gbuffer_outputs.json
 OUT_DIR/renderdoc_shader_match.json
 OUT_DIR/renderdoc_texture_slot_map.json
 OUT_DIR/renderdoc_runtime_outputs.json
@@ -304,6 +329,14 @@ If DrawcallRole.SpecificRole is NaniteGBufferCompute:
 TextureBindings prove runtime t#/u# binding only.
 They do not prove UE material parameter names unless separate cooked metadata also supports the mapping.
 
+If renderdoc_svt_summary.json reports Detected=true:
+  Treat SVT page-table textures, physical texture pages, and feedback/runtime UAVs as UE renderer runtime mechanisms.
+  Reconstruct Unity material shaders with direct Unity texture properties instead of porting SVT indirection.
+
+If renderdoc_cpd_summary.json reports partial:
+  The CPD path may be proven even when actual per-instance CUSTOM_DATA_OFFSET values were not decoded.
+  Do not fabricate CPD values. Treat decoded CPD values, when present, as runtime facts rather than UE source parameter names.
+
 Unity target remains Unity 6 URP Deferred with DOTS instancing unless the user explicitly changes the target.
 Reuse Unity URP Deferred lighting unless lightpass audit or a RenderDoc lightpass overlay proves game-specific custom lighting.
 ```
@@ -318,17 +351,26 @@ The task is complete only when:
 3. OUT_DIR exists.
 4. renderdoc_runtime_overlay.json exists and is parseable.
 5. renderdoc_runtime_overlay.md exists.
-6. renderdoc_shader_match.json exists.
-7. renderdoc_texture_slot_map.json exists.
-8. renderdoc_runtime_outputs.json exists.
-9. If Bundle=... was provided or auto-detected, `--context-only "BUNDLE_DIR"` was run and returned `Verify: OK`.
-10. Final response reports:
+6. renderdoc_material_runtime_evidence.md/json exists.
+7. renderdoc_shader_io_summary.json exists.
+8. renderdoc_cpd_summary.json exists.
+9. renderdoc_svt_summary.json exists.
+10. renderdoc_gbuffer_outputs.json exists.
+11. renderdoc_shader_match.json exists.
+12. renderdoc_texture_slot_map.json exists.
+13. renderdoc_runtime_outputs.json exists.
+14. All JSON files in OUT_DIR parse.
+15. If Bundle=... was provided or auto-detected, `--context-only "BUNDLE_DIR"` was run and returned `Verify: OK`.
+16. Final response reports:
    - RenderDoc directory
    - Bundle directory, or "not provided"
    - Output directory
    - overlay Status
    - DrawcallRole RoleCandidate and SpecificRole
    - ShaderMatch summary
+   - CPD status
+   - SVT status
+   - GBuffer output count/role
 ```
 
 If any step fails, report the exact failed command, exit result, and the missing or invalid file.
