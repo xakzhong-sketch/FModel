@@ -137,6 +137,9 @@ analysis/ai_context_pack.md/json
 analysis/semantic_binding_map.json
 analysis/texture_register_statistics.json
 source/material_functions/*.cooked.json, when present
+analysis/module_formula_evidence.json, when present
+analysis/dxil_formula_evidence.json, when present
+analysis/curve_atlas_metadata.json, when present
 selected shaders/*.dxil.ll, only for chosen entrypoints and specific formula/binding questions
 analysis/renderdoc/renderdoc_runtime_overlay.md/json, if present
 ```
@@ -277,6 +280,26 @@ DOTS instancing enabled
 
 Reuse Unity URP Deferred lighting unless `analysis/lightpass_audit.json` or RenderDoc evidence proves custom game lighting. Do not port UE deferred LightPass code into the material shader by default.
 
+## Semantic Debug Outputs
+
+When writing or extending a Unity shader for this workflow, add semantic debug support so the later visual validation goal can compare material channels instead of relying only on final lit screenshots.
+
+Use the template:
+
+```text
+CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2SemanticDebug.hlsl.txt
+```
+
+Rules:
+
+```text
+1. Add `_SN2DebugMode` to the shader `Properties` block.
+2. Add `int _SN2DebugMode;` to the shader's existing UnityPerMaterial CBUFFER.
+3. Fill `SN2DebugSurface` from the same material/layer evaluation code used by the UniversalGBuffer pass.
+4. Support at least the bundle-visible channels: BaseColor, NormalWS or NormalTS, Roughness/Smoothness, Metallic, AmbientOcclusion, Alpha/OpacityMask, LayerBlend, HeightBlend when the shader computes them.
+5. If a channel is not implemented, document the missing evidence and visual impact in the reconstruction report.
+```
+
 ## Material Restore
 
 After the shader and `.mat` exist, run:
@@ -301,7 +324,8 @@ python CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_material_apply_ue_pa
   --layer-aware `
   --assign-shader-meta "ASSIGNED_SHADER.shader.meta" `
   --report-out "RESTORE_REPORT" `
-  --apply
+  --apply `
+  --apply-confirm WRITE_MAT
 ```
 
 If the Unity `.mat` does not exist yet:
@@ -315,7 +339,8 @@ python CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_material_apply_ue_pa
   --add-missing `
   --create-if-missing `
   --report-out "RESTORE_REPORT" `
-  --apply
+  --apply `
+  --apply-confirm WRITE_MAT
 ```
 
 Expected report:
@@ -327,6 +352,14 @@ MatchedByLegacyNameFallback is zero or explicitly explained.
 MissingTextureGuids is empty or accepted.
 SkippedMissingUnityProperties is empty or explained.
 ```
+
+After material restore succeeds with `Apply`, run semantic visual validation when the workspace has original-game references under `VisualRefs` or the user requests visual validation:
+
+```text
+/goal UE_Unity_Material_Semantic_Visual_Validation_Goal.md
+```
+
+Use the bundle-local goal when present; use `D:\Github\FModel\Doc\UE_Unity_Material_Semantic_Visual_Validation_Goal.md` as fallback. Read `visual_validation_report.md/json` and `visual_validation_advice.json` before raw screenshot or diff inspection. Prefer decoded semantic GBuffer/material channel captures over raw GBuffer attachments. A final lit screenshot alone is not enough to declare high-fidelity reconstruction.
 
 ## Registry Validation
 

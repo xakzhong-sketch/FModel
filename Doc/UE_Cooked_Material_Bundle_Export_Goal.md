@@ -226,6 +226,7 @@ AGENTS.md
 WORKFLOW.md
 NEXT_TASK.md
 PROMPT_NEXT_SESSION.md
+UE_Unity_Material_Semantic_Visual_Validation_Goal.md
 agent_context.json
 manifest.json
 analysis/semantic_status.json
@@ -267,6 +268,7 @@ For later Unity reconstruction, a new Agent should start with:
 ```text
 AGENTS.md
 WORKFLOW.md
+UE_Unity_Material_Semantic_Visual_Validation_Goal.md
 analysis/ai_context_pack.md
 analysis/ai_context_pack.json
 analysis/reconstruction_entrypoints.json
@@ -378,6 +380,14 @@ Doc/UE_Unity_Material_Property_Restore_Goal.md
 
 That restore step should use `--layer-aware` when `analysis/material_layer_parameter_bindings.json` exists. It reads StableKey-derived Unity property names first, falls back to legacy name matching only when the layer-aware map is missing, writes an audit report, and only modifies the `.mat` when explicitly run with `--apply`.
 
+After material restore succeeds with explicit `Apply`, semantic visual validation can be run when the workspace has original-game references under `VisualRefs` or the user requests validation:
+
+```text
+/goal UE_Unity_Material_Semantic_Visual_Validation_Goal.md
+```
+
+This is a separate post-restore step. Future exported bundle directories must include this local goal file. It must read compact semantic reports/advice before raw screenshots or diff images, it must prefer decoded semantic GBuffer/material channel captures over raw GBuffer attachments, and it must not create, assign, inspect, or restore Unity `.mat` files.
+
 `PROMPT_NEXT_SESSION.md`, `AGENTS.md`, `WORKFLOW.md`, and `agent_context.json` must support both cases:
 
 ```text
@@ -410,6 +420,14 @@ If reuse evidence is missing or stale:
 
 Only read Unity .mat files or texture asset folders in the separate material restore step:
   Doc\UE_Unity_Material_Property_Restore_Goal.md
+
+After material restore Apply, optional semantic visual validation lives in:
+  UE_Unity_Material_Semantic_Visual_Validation_Goal.md
+  analysis/unity_visual_validation/visual_validation_report.md
+  analysis/unity_visual_validation/visual_validation_report.json
+  analysis/unity_visual_validation/visual_validation_advice.json
+
+Visual validation compact reports/advice must be read before raw screenshot/capture/diff files. Decoded semantic captures such as albedo.png, normal_world.png, metallic.png, smoothness.png, and occlusion.png are the primary Deferred surface evidence; raw_gbuffer0/1/2.png are debugging evidence only.
 ```
 
 ## Completion Criteria
@@ -430,7 +448,7 @@ The task is complete only when:
    analysis/unity_shader_assignment.json
    analysis/unity_layer_reconstruction_contract.json
 7. AGENTS.md and WORKFLOW.md exist in the bundle root.
-8. AGENTS.md, WORKFLOW.md, NEXT_TASK.md, PROMPT_NEXT_SESSION.md, and the local skill mention the Unity Properties preservation rule and the Unity project access boundary.
+8. AGENTS.md, WORKFLOW.md, NEXT_TASK.md, PROMPT_NEXT_SESSION.md, UE_Unity_Material_Semantic_Visual_Validation_Goal.md, and the local skill mention the Unity Properties preservation rule, the Unity project access boundary, and the optional post-restore semantic visual validation step.
 9. --verify-only returns Verify: OK.
 10. Final response reports the material path, output bundle path, and verification result.
 ```

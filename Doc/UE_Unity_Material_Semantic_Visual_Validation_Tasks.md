@@ -19,7 +19,7 @@ Do not modify RenderDoc/qrenderdoc. Do not make this part of material property r
 
 ### 1. Define Validation Workspace Contract
 
-Status: todo
+Status: done
 
 Files:
 
@@ -61,7 +61,7 @@ Acceptance:
 
 ### 2. Add Validation Config Schema
 
-Status: todo
+Status: done
 
 Files:
 
@@ -103,7 +103,7 @@ Acceptance:
 
 ### 3. Add Shader Semantic Debug Contract
 
-Status: todo
+Status: done
 
 Unity files:
 
@@ -154,7 +154,7 @@ Acceptance:
 
 ### 4. Update Shader Reconstruction Contract
 
-Status: todo
+Status: done
 
 Files:
 
@@ -189,7 +189,7 @@ Acceptance:
 
 ### 5. Add Unity Capture Runner Template
 
-Status: todo
+Status: done
 
 FModel template:
 
@@ -234,7 +234,7 @@ Acceptance:
 
 ### 6. Add Unity Preview Scene Contract
 
-Status: todo
+Status: done
 
 Unity target:
 
@@ -270,7 +270,7 @@ Acceptance:
 
 ### 7. Implement Semantic Capture Modes
 
-Status: todo
+Status: done
 
 Unity files:
 
@@ -318,7 +318,14 @@ Acceptance:
 
 ### 8. Optional URP Raw GBuffer Capture Feature
 
-Status: todo
+Status: done
+
+Status note:
+
+- `CUE4Parse/CUE4Parse.ShaderBundleExporter/Tools/unity_shader_validation/URPMaterialSemanticCaptureFeature.cs.txt` is now a Unity 6 URP RenderGraph template based on the local project URP source.
+- The feature runs at `AfterRenderingGbuffer`, exposes `_SN2ValidationRawGBuffer0..3` and `_SN2ValidationRawDepth` as global textures, and writes `UnityValidation/reports/urp_gbuffer_capture_contract.json`.
+- This remains optional Unity pipeline evidence. The primary validation path is still semantic debug capture through `_SN2DebugMode`.
+- Decoded semantic validation is covered by shader debug outputs; raw GBuffer decoding remains contract-stamped pipeline evidence, not UE source graph proof.
 
 Unity files:
 
@@ -360,7 +367,7 @@ Acceptance:
 
 ### 9. Implement Python Diff Script Scaffold
 
-Status: todo
+Status: done
 
 File:
 
@@ -403,7 +410,7 @@ Acceptance:
 
 ### 10. Implement Image Metrics
 
-Status: todo
+Status: done
 
 File:
 
@@ -446,7 +453,7 @@ Acceptance:
 
 ### 11. Implement Visual Advisor
 
-Status: todo
+Status: done
 
 File:
 
@@ -503,7 +510,7 @@ Acceptance:
 
 ### 12. Add Contact Sheet Generation
 
-Status: todo
+Status: done
 
 File:
 
@@ -529,7 +536,12 @@ Acceptance:
 
 ### 13. Add Goal Document
 
-Status: todo
+Status: done
+
+Status note:
+
+- Goal now includes Step 0 and Step 7 preflight commands through `unity_visual_validation_preflight.py`.
+- Preflight reports write `visual_validation_preflight.json/md` and include Root, Mat, Bundle, Unity version evidence, capture/report dirs, status, and top issue categories.
 
 File:
 
@@ -570,7 +582,7 @@ Acceptance:
 
 ### 14. Add Bundle Agent Docs Integration
 
-Status: todo
+Status: done
 
 File:
 
@@ -608,10 +620,11 @@ Acceptance:
 
 - `--context-only` refreshes docs with validation report paths when present.
 - Existing bundles without visual validation remain valid.
+- `--context-only` also detects mirrored `visual_validation_preflight.md/json` and puts them before raw report/advice in `agent_context.json` `ReadFirst`.
 
 ### 15. Add Optional Report Mirror Into Bundle
 
-Status: todo
+Status: done
 
 Files:
 
@@ -645,7 +658,7 @@ Acceptance:
 
 ### 16. Add Synthetic Image Test Fixture
 
-Status: todo
+Status: done
 
 Files:
 
@@ -674,7 +687,58 @@ Acceptance:
 
 ### 17. Add First Real Fixture Workflow
 
-Status: todo
+Status: done
+
+Status note:
+
+- Unity 6 was provided and verified: `K:\Unity\6000.0.62f1\Editor\Unity.exe`.
+- Test project was provided and verified: `D:\Workplace\TestWP\ShaderTest`, `ProjectVersion.txt` = `6000.0.62f1`, URP package = `17.0.4`.
+- Validation templates were installed into the test project under:
+
+```text
+Assets/Editor/ShaderReverse/Validation/
+Assets/Shaders/Subnautica2/Debug/
+Assets/ShaderReverse/Validation/
+```
+
+- `SN2ValidationFixtureSetup.CreateSyntheticFixture` generated:
+
+```text
+Assets/ShaderReverse/Validation/Materials/SN2ValidationSynthetic.mat
+Assets/ShaderReverse/Validation/Scenes/SN2MaterialPreview.unity
+```
+
+- Unity semantic capture was run in batchmode with graphics enabled. Do not use `-nographics` for this workflow; it produced undefined gray RenderTexture output in testing.
+- Capture output:
+
+```text
+D:\Tmp\UnityVisualValidationRealTest\UnityValidation\captures\capture_manifest.json
+D:\Tmp\UnityVisualValidationRealTest\UnityValidation\captures\base_color.png
+D:\Tmp\UnityVisualValidationRealTest\UnityValidation\captures\normal_ws.png
+D:\Tmp\UnityVisualValidationRealTest\UnityValidation\captures\roughness.png
+D:\Tmp\UnityVisualValidationRealTest\UnityValidation\captures\metallic.png
+D:\Tmp\UnityVisualValidationRealTest\UnityValidation\captures\ambient_occlusion.png
+```
+
+- Final report/advice/preflight output:
+
+```text
+D:\Tmp\UnityVisualValidationRealTest\UnityValidation\reports\visual_validation_report.json
+D:\Tmp\UnityVisualValidationRealTest\UnityValidation\reports\visual_validation_report.md
+D:\Tmp\UnityVisualValidationRealTest\UnityValidation\reports\visual_validation_advice.json
+D:\Tmp\UnityVisualValidationRealTest\UnityValidation\reports\visual_validation_preflight.json
+```
+
+- Report status: `pass`.
+- Advice status: `pass`.
+- Preflight status: `capture_complete`.
+- Mirrored compact reports were verified in:
+
+```text
+D:\Tmp\ShaderBundles\MI_CG_RockSmooth_01a.bundle\analysis\unity_visual_validation\
+```
+
+- Note: this proves the Unity 6 semantic capture/diff/advisor/preflight toolchain on a controlled ShaderTest fixture. A real MI visual-fidelity run still requires a restored Unity material, reconstructed shader, and original-game `VisualRefs` for that MI.
 
 Fixture:
 
@@ -705,7 +769,14 @@ Acceptance:
 
 ### 18. Add Missing Texture Fixture
 
-Status: todo
+Status: done
+
+Status note:
+
+- `unity_visual_validation_advisor.py` now accepts `--restore-report` and classifies non-empty `MissingTextureGuids` as `texture_missing_or_wrong_guid`.
+- Verified with existing fixture report `D:\Tmp\ShaderBundles\MI_CG_RockSmooth_01a.missing_texture_dryrun.json`.
+- Output verified at `D:\Tmp\UnityVisualValidationFallbackTest\UnityValidation\reports\visual_validation_advice_missing_texture.json`; it reports `missing_texture_guid_count: 3` and issue type `texture_missing_or_wrong_guid`.
+- This does not modify `.mat` files and points back to the material restore/missing texture export workflow.
 
 Tasks:
 
@@ -724,7 +795,7 @@ Acceptance:
 
 ### 19. Add Documentation To Existing Workflows
 
-Status: todo
+Status: done
 
 Files:
 
@@ -747,7 +818,16 @@ Acceptance:
 
 ### 20. Final Verification
 
-Status: todo
+Status: done
+
+Status note:
+
+- Completed: Python syntax checks, `unity_visual_validation_diff.py --self-test`, `unity_visual_validation_advisor.py --self-test`, `dotnet build`, `--init-config`, ScreenShot fallback config/report, no-reference diff report, advisor report, missing texture advisor classification, `unity_visual_validation_preflight.py` final status report, report mirror to bundle, and `--context-only ... --verbose` with `Verify: OK`.
+- Preflight verified output: `D:\Tmp\UnityVisualValidationFallbackTest\UnityValidation\reports\visual_validation_preflight.json`; mirrored bundle context includes `analysis/unity_visual_validation/visual_validation_preflight.md/json`.
+- Unity 6 batch capture is now completed with `K:\Unity\6000.0.62f1\Editor\Unity.exe` and `D:\Workplace\TestWP\ShaderTest`.
+- Final Unity capture command wrote `capture_manifest.json` and semantic PNG captures under `D:\Tmp\UnityVisualValidationRealTest\UnityValidation\captures`.
+- Final diff/advisor/preflight outputs are parseable and report `pass` / `pass` / `capture_complete`.
+- `dotnet run --project CUE4Parse\CUE4Parse.ShaderBundleExporter\CUE4Parse.ShaderBundleExporter.csproj -c Release -- --context-only "D:\Tmp\ShaderBundles\MI_CG_RockSmooth_01a.bundle" --verbose` returned `Verify: OK`.
 
 Commands:
 
@@ -769,6 +849,8 @@ Unity.exe -batchmode -projectPath "UNITY_PROJECT" `
   -validationConfig "WORK_DIR\UnityValidation\config.json" `
   -logFile "WORK_DIR\UnityValidation\unity_capture.log"
 ```
+
+Do not add `-nographics`; semantic RenderTexture capture needs a graphics device.
 
 Acceptance:
 
@@ -794,6 +876,6 @@ The feature is complete when:
 - Unity semantic capture runner exists or template is available.
 - Shader semantic debug contract is documented and integrated into reconstruction instructions.
 - Python diff/report/advisor can run at least on synthetic fixture.
-- First real material fixture can produce captures and reports.
+- Unity 6 ShaderTest fixture can produce captures and reports; real MI visual-fidelity runs require a restored Unity material, reconstructed shader, and original-game `VisualRefs` as workflow inputs.
 - Bundle docs can include compact visual validation report paths when present.
 - Existing bundle export, RenderDoc compact summary, material restore, and shader reconstruction workflows remain compatible.

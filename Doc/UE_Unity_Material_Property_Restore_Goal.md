@@ -302,6 +302,33 @@ MI_Name.mat.bak_YYYYMMDD_HHMMSS
 
 Use `--no-backup` only for disposable test files.
 
+## After Apply: Semantic Visual Validation
+
+After a successful `Apply`, do not claim visual fidelity from the restore report alone. If the current material workspace contains original-game reference screenshots under `VisualRefs`, or the user requests visual validation, run:
+
+```text
+/Goal UE_Unity_Material_Semantic_Visual_Validation_Goal.md
+```
+
+Use the bundle-local goal file when it exists. Use `D:\Github\FModel\Doc\UE_Unity_Material_Semantic_Visual_Validation_Goal.md` as the canonical fallback only.
+
+This follow-up goal captures Unity semantic outputs and compares compact reports before raw screenshots:
+
+```text
+UnityValidation\reports\visual_validation_report.md
+UnityValidation\reports\visual_validation_report.json
+UnityValidation\reports\visual_validation_advice.json
+```
+
+Rules:
+
+```text
+1. The visual validation goal must not modify `.mat` files.
+2. Read semantic report/advice before inspecting raw captures, diffs, or final lit screenshots.
+3. Prefer decoded semantic GBuffer/material channel captures such as albedo.png, normal_world.png, metallic.png, smoothness.png, and occlusion.png. raw_gbuffer0/1/2.png are debugging evidence only.
+4. A final lit screenshot alone is not proof that BaseColor, Normal, Roughness/Smoothness, Metallic/AO, Alpha/Mask, LayerBlend, or HeightBlend are correct.
+```
+
 ## Optional: Export Missing Textures
 
 Use this only after DryRun reports `MissingTextureGuids` and the report contains `MissingTextureExportCandidates`.
@@ -386,4 +413,5 @@ The task is complete only when:
 6. SkippedMissingUnityProperties is reviewed and either fixed in the Unity shader/material or accepted as intentionally omitted.
 7. If Apply was requested, the .mat is updated and a .bak file exists unless --no-backup was explicitly used.
 8. Final response reports Mat, Bundle, report path, matched count, StableKey count, legacy fallback count, skipped count, missing texture GUID count, texture export count if used, and whether Apply was used.
+9. If Apply was used and `VisualRefs` exists in the material workspace, final response tells the user to run local `UE_Unity_Material_Semantic_Visual_Validation_Goal.md` next.
 ```

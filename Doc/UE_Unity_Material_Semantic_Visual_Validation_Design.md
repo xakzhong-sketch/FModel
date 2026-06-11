@@ -348,6 +348,8 @@ Unity.exe -batchmode -projectPath "K:\WorkSpace\trunk\ExportedProject" `
   -logFile "K:\WorkSpace\ShaderReverse\MI_CG_RockSmooth_01a\UnityValidation\unity_capture.log"
 ```
 
+Do not use `-nographics`; semantic RenderTexture capture needs a graphics device.
+
 Responsibilities:
 
 1. Load validation config.

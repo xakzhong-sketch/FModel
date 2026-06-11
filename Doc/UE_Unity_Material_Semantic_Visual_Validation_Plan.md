@@ -151,21 +151,25 @@ float4 SN2EncodeDebugRoughness(SN2DebugSurface s);
 ...
 ```
 
-Add debug keywords or material property selector:
+Add fixed semantic debug passes first, with material/global selector as fallback only:
 
 ```text
-SN2_DEBUG_BASECOLOR
-SN2_DEBUG_NORMALWS
-SN2_DEBUG_NORMALTS
-SN2_DEBUG_ROUGHNESS
-SN2_DEBUG_SMOOTHNESS
-SN2_DEBUG_METALLIC
-SN2_DEBUG_AO
-SN2_DEBUG_EMISSION
-SN2_DEBUG_ALPHA
-SN2_DEBUG_LAYER_BLEND
-SN2_DEBUG_HEIGHT_BLEND
+SN2SemanticDebug_BaseColor
+SN2SemanticDebug_NormalWS
+SN2SemanticDebug_NormalTS
+SN2SemanticDebug_Roughness
+SN2SemanticDebug_Smoothness
+SN2SemanticDebug_Metallic
+SN2SemanticDebug_AmbientOcclusion
+SN2SemanticDebug_Emission
+SN2SemanticDebug_Alpha
+SN2SemanticDebug_OpacityMask
+SN2SemanticDebug_LayerBlend
+SN2SemanticDebug_HeightBlend
+SN2SemanticDebug_FinalColor
 ```
+
+The runner should prefer fixed pass names. A single `SN2SemanticDebug` pass driven by `_SN2DebugMode` is allowed for backward compatibility, but fixed passes are more deterministic in Unity batch capture.
 
 ### Acceptance
 
@@ -280,6 +284,8 @@ Unity.exe -batchmode -projectPath "UNITY_PROJECT" `
   -validationConfig "WORK_DIR\UnityValidation\config.json" `
   -logFile "WORK_DIR\UnityValidation\unity_capture.log"
 ```
+
+Do not add `-nographics`. Unity RenderTexture/semantic capture needs a graphics device; testing with `-nographics` produced undefined gray captures.
 
 ### Acceptance
 
