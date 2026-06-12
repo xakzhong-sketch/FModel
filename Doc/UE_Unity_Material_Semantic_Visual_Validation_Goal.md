@@ -107,6 +107,7 @@ CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2Semant
 CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2MaterialVisualValidationRunner.cs.txt
 CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\URPMaterialSemanticCaptureFeature.cs.txt
 CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2GBufferCaptureRunner.cs.txt
+CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2GBufferCaptureRequestWatcher.cs.txt
 CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2GBufferVisualizationFeature.cs.txt
 CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2GBufferVisualize.shader.txt
 ```
@@ -117,10 +118,13 @@ Unity project target paths:
 Assets/Shaders/Subnautica2/Debug/SN2SemanticDebug.hlsl
 Assets/Editor/ShaderReverse/Validation/SN2MaterialVisualValidationRunner.cs
 Assets/ShaderReverse/Runtime/Validation/URPMaterialSemanticCaptureFeature.cs
-Assets/Editor/ShaderReverse/Validation/SN2GBufferCaptureRunner.cs
+Assets/Editor/ShaderReverse/Validation/SN2GBufferCaptureRunner.cs        includes request bridge
+Assets/Editor/ShaderReverse/Validation/SN2GBufferCaptureRequestWatcher.cs optional standalone request bridge
 Assets/ShaderReverse/Runtime/Validation/SN2GBufferVisualizationFeature.cs
 Assets/ShaderReverse/Validation/Shaders/SN2GBufferVisualize.shader
 Assets/ShaderReverse/Validation/gbuffer_capture_config.json   optional open-Editor config
+Assets/ShaderReverse/Validation/gbuffer_capture_request.json  transient open-Editor request
+Assets/ShaderReverse/Validation/gbuffer_capture_response.json transient open-Editor response
 Assets/ShaderReverse/Validation/Scenes/SN2MaterialPreview.unity
 ```
 
@@ -213,6 +217,11 @@ Copy-Item `
 Copy-Item `
   -LiteralPath "D:\Github\FModel\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2GBufferCaptureRunner.cs.txt" `
   -Destination "UNITY_PROJECT\Assets\Editor\ShaderReverse\Validation\SN2GBufferCaptureRunner.cs" `
+  -Force
+
+Copy-Item `
+  -LiteralPath "D:\Github\FModel\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2GBufferCaptureRequestWatcher.cs.txt" `
+  -Destination "UNITY_PROJECT\Assets\Editor\ShaderReverse\Validation\SN2GBufferCaptureRequestWatcher.cs" `
   -Force
 
 Copy-Item `
@@ -340,7 +349,45 @@ UNITY_EXE -batchmode -projectPath "UNITY_PROJECT" `
 
 Do not add `-nographics`.
 
-If the Unity project is already open in Editor, do not launch a second Unity instance for the same project. Instead, write this optional config file:
+If the Unity project is already open in Editor, do not launch a second Unity instance for the same project and do not use focus-stealing, SendKeys, or mouse automation. Prefer the request-bridge path.
+
+The primary Unity-side request bridge is built into:
+
+```text
+UNITY_PROJECT\Assets\Editor\ShaderReverse\Validation\SN2GBufferCaptureRunner.cs
+```
+
+Optional standalone bridge:
+
+```text
+UNITY_PROJECT\Assets\Editor\ShaderReverse\Validation\SN2GBufferCaptureRequestWatcher.cs
+```
+
+It polls:
+
+```text
+UNITY_PROJECT\Assets\ShaderReverse\Validation\gbuffer_capture_request.json
+```
+
+and writes:
+
+```text
+UNITY_PROJECT\Assets\ShaderReverse\Validation\gbuffer_capture_response.json
+```
+
+From a generated bundle workspace, use the local command:
+
+```powershell
+.\commands\request_current_scene_gbuffer_capture.ps1 `
+  -UnityProject "UNITY_PROJECT" `
+  -OutputDir "ROOT_DIR\UnityValidation\captures_gbuffer_semantic_current_scene" `
+  -RendererData "Assets/MonoBehaviour/URP_Renderer.asset" `
+  -TimeoutSeconds 120
+```
+
+This captures the current open scene/camera without requiring Unity window focus. The Unity project must already be open, and `SN2GBufferCaptureRunner.cs` must have compiled once. The command writes `gbuffer_capture_config.json` for the current request. If Unity does not answer within a few seconds, the command touches `SN2GBufferCaptureRunner.cs` to trigger AssetDatabase refresh/script reload and writes `run_current_scene_gbuffer.flag` as a compatibility fallback for any compiled flag poller, then continues waiting. This is expected and is the supported no-focus bootstrap path.
+
+The request command is the primary open-Editor route. Manual config/menu execution is a fallback only. The fallback config file is:
 
 ```text
 UNITY_PROJECT\Assets\ShaderReverse\Validation\gbuffer_capture_config.json
@@ -373,13 +420,13 @@ For an already-open real scene such as `Assets/Art/28_01.unity`, use current-cam
 }
 ```
 
-Then ask the user to run this menu in the already-open Unity Editor:
+Fallback only: ask the user to run this menu in the already-open Unity Editor:
 
 ```text
 Tools/ShaderReverse/Validation/Capture URP Deferred GBuffer Semantics
 ```
 
-For current real-scene validation, prefer this simpler menu:
+Fallback only: for current real-scene validation, prefer this simpler menu:
 
 ```text
 Tools/ShaderReverse/Validation/Capture Current Scene GBuffer Semantics
@@ -402,10 +449,10 @@ Unity not open:
   use batchmode.
 
 Unity already open + validating a preview material:
-  write gbuffer_capture_config.json and run Capture URP Deferred GBuffer Semantics.
+  use commands/request_current_scene_gbuffer_capture.ps1 when validating the current scene/camera; use config + menu only as fallback.
 
 Unity already open + validating an existing level/camera, for example Assets/Art/28_01.unity:
-  write only output_dir/camera if needed and run Capture Current Scene GBuffer Semantics.
+  use commands/request_current_scene_gbuffer_capture.ps1. Do not require Unity focus and do not launch a second Unity instance.
 ```
 
 This path avoids the "Multiple Unity instances cannot open the same project" lock.
