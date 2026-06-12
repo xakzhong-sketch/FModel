@@ -9,13 +9,13 @@ Do not restore `.mat` properties in this goal. Do not export missing textures in
 Preferred forms:
 
 ```text
-/goal D:\Github\FModel\Doc\UE_Unity_Material_Semantic_Visual_Validation_Goal.md
+/goal <FModelRepo>/Doc/UE_Unity_Material_Semantic_Visual_Validation_Goal.md
 
-/goal D:\Github\FModel\Doc\UE_Unity_Material_Semantic_Visual_Validation_Goal.md Root=K:\WorkSpace\ShaderReverse\MI_CG_RockSmooth_01a
+/goal <FModelRepo>/Doc/UE_Unity_Material_Semantic_Visual_Validation_Goal.md Root=<Workspace>
 
-/goal D:\Github\FModel\Doc\UE_Unity_Material_Semantic_Visual_Validation_Goal.md Mat=K:\WorkSpace\trunk\ExportedProject\Assets\...\MI_CG_RockSmooth_01a.mat Bundle=K:\WorkSpace\ShaderReverse\MI_CG_RockSmooth_01a\MI_CG_RockSmooth_01a.bundle
+/goal <FModelRepo>/Doc/UE_Unity_Material_Semantic_Visual_Validation_Goal.md Mat=<UnityProject>/Assets/.../MI_Name.mat Bundle=<Workspace>/MI_Name.bundle
 
-/goal D:\Github\FModel\Doc\UE_Unity_Material_Semantic_Visual_Validation_Goal.md Root=K:\...\MI_xxx UnityProject=K:\WorkSpace\trunk\ExportedProject Mat=Assets\...\MI_xxx.mat
+/goal <FModelRepo>/Doc/UE_Unity_Material_Semantic_Visual_Validation_Goal.md Root=<Workspace> UnityProject=<UnityProject> Mat=Assets/.../MI_Name.mat
 ```
 
 Argument rules:
@@ -59,6 +59,53 @@ Reference directory rules:
 
 If no usable reference directory is found, continue only far enough to create config and report `needs_reference`; do not claim visual validation passed.
 
+## Bug Fix Discipline
+
+Visual validation may guide investigation, but it must not directly justify shader, material, texture import, mesh, or validation-tool edits.
+
+Classify every finding before editing:
+
+```text
+Proven:
+  UE-side behavior, Unity-side mismatch, and validation impact are all backed by concrete evidence.
+  This can justify an edit.
+
+Strong Suspect:
+  The issue is likely, but the source behavior or Unity mismatch is not proven.
+  Record an investigation item. Do not edit yet.
+
+Runtime Only:
+  Evidence comes from a captured frame or renderer state, such as CPD, SVT page tables, feedback UAV, Nanite/runtime paths, scene textures, or per-instance data.
+  Port only the required semantic effect and label missing runtime systems explicitly.
+
+Visual Only:
+  Evidence comes only from screenshots, final lit captures, or subjective comparison.
+  Use it to prioritize investigation only. Do not edit from it alone.
+```
+
+Before changing anything, prove all of these:
+
+```text
+1. Name the mismatch by semantic channel:
+   BaseColor, Normal, Roughness/Smoothness, Metallic/AO, Alpha/Mask, LayerBlend, HeightBlend, VertexColor, CPD/per-instance data, UV/projection/triplanar, or renderer-only behavior.
+2. Prove the UE side from cooked material/layer/function data, selected DXIL/HLSL dataflow, RenderDoc runtime summary, or semantic reference evidence.
+3. Prove the Unity side from shader code, .mat YAML, .meta GUIDs, texture import settings, mesh semantic data, or Unity semantic capture output.
+4. Make the smallest change that aligns Unity with the proven UE/runtime behavior.
+5. Have a validation plan that can prove the intended semantic channel changed.
+```
+
+If any item is missing, stop and write the missing evidence instead of editing.
+
+For layered/generated materials, determine source layer order, blend order, texture/parameter roles, sampled Unity property/register evidence, and Unity `.mat` GUIDs before changing bindings. Do not generalize anonymous texture registers, Unity property slots, real texture names, screenshots, or one-off fixes into reusable workflow docs; put those in material-specific audit notes.
+
+Do not assume Unity mesh color channels match UE post-VS color channels. Before applying vertex-color swizzles or mesh-driven fixes, compare UE post-VS color channel ranges with Unity mesh color/normal/tangent ranges on visible target meshes, compare distributions instead of one vertex, and verify with semantic captures before and after.
+
+For normals, use decoded semantic normal outputs. Do not score normal parity from raw GBuffer attachments unless the packing is explicitly decoded. Separate normal texture decode, tangent basis, mesh smoothing, and projection/triplanar issues before editing.
+
+For every confirmed fix, capture or identify a baseline, apply the smallest aligned change, capture again, compare semantic outputs first, generate a before/after diff when useful, confirm the diff is localized to the intended material/channel, sync touched Unity assets into `UnityMirror/Assets/...` when that workflow is active, and write a material-specific audit note.
+
+Stop and report instead of editing when UE behavior is unknown, Unity implementation/binding is unknown, runtime evidence cannot be mapped to a source role, captures cannot be aligned enough to localize the issue, the likely change would alter shader/material/texture/mesh data without a confirmed cause, or the change would overfit one screenshot without semantic evidence.
+
 ## Workspace Contract
 
 Root directory:
@@ -89,7 +136,7 @@ Large captures and diffs remain in `UnityValidation`. Only compact reports may b
 FModel repo:
 
 ```text
-D:\Github\FModel
+<FModelRepo>
 ```
 
 Python scripts:
@@ -179,7 +226,7 @@ capture_complete:
 
 ## Step 1 - Generate Or Validate Config
 
-From `D:\Github\FModel`:
+From `<FModelRepo>`:
 
 ```powershell
 python CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_visual_validation_diff.py `
@@ -200,37 +247,37 @@ Copy templates into the Unity project only when missing or when the user explici
 
 ```powershell
 Copy-Item `
-  -LiteralPath "D:\Github\FModel\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2SemanticDebug.hlsl.txt" `
+  -LiteralPath "<FModelRepo>\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2SemanticDebug.hlsl.txt" `
   -Destination "UNITY_PROJECT\Assets\Shaders\Subnautica2\Debug\SN2SemanticDebug.hlsl" `
   -Force
 
 Copy-Item `
-  -LiteralPath "D:\Github\FModel\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2MaterialVisualValidationRunner.cs.txt" `
+  -LiteralPath "<FModelRepo>\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2MaterialVisualValidationRunner.cs.txt" `
   -Destination "UNITY_PROJECT\Assets\Editor\ShaderReverse\Validation\SN2MaterialVisualValidationRunner.cs" `
   -Force
 
 Copy-Item `
-  -LiteralPath "D:\Github\FModel\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\URPMaterialSemanticCaptureFeature.cs.txt" `
+  -LiteralPath "<FModelRepo>\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\URPMaterialSemanticCaptureFeature.cs.txt" `
   -Destination "UNITY_PROJECT\Assets\ShaderReverse\Runtime\Validation\URPMaterialSemanticCaptureFeature.cs" `
   -Force
 
 Copy-Item `
-  -LiteralPath "D:\Github\FModel\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2GBufferCaptureRunner.cs.txt" `
+  -LiteralPath "<FModelRepo>\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2GBufferCaptureRunner.cs.txt" `
   -Destination "UNITY_PROJECT\Assets\Editor\ShaderReverse\Validation\SN2GBufferCaptureRunner.cs" `
   -Force
 
 Copy-Item `
-  -LiteralPath "D:\Github\FModel\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2GBufferCaptureRequestWatcher.cs.txt" `
+  -LiteralPath "<FModelRepo>\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2GBufferCaptureRequestWatcher.cs.txt" `
   -Destination "UNITY_PROJECT\Assets\Editor\ShaderReverse\Validation\SN2GBufferCaptureRequestWatcher.cs" `
   -Force
 
 Copy-Item `
-  -LiteralPath "D:\Github\FModel\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2GBufferVisualizationFeature.cs.txt" `
+  -LiteralPath "<FModelRepo>\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2GBufferVisualizationFeature.cs.txt" `
   -Destination "UNITY_PROJECT\Assets\ShaderReverse\Runtime\Validation\SN2GBufferVisualizationFeature.cs" `
   -Force
 
 Copy-Item `
-  -LiteralPath "D:\Github\FModel\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2GBufferVisualize.shader.txt" `
+  -LiteralPath "<FModelRepo>\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\unity_shader_validation\SN2GBufferVisualize.shader.txt" `
   -Destination "UNITY_PROJECT\Assets\ShaderReverse\Validation\Shaders\SN2GBufferVisualize.shader" `
   -Force
 ```

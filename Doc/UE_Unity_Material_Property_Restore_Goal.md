@@ -82,6 +82,10 @@ ExportMissingTextures
   Optional restore-stage sub-step. If DryRun reports MissingTextureGuids, export only those missing UE cooked textures listed by MissingTextureExportCandidates.
   This must not be combined with Apply and must not modify the .mat file.
 
+Texture payload import
+  If DryRun reports MissingTextureGuids and Bundle\texture_payload\manifest.json exists, import only the missing textures from that payload before using ExportMissingTextures.
+  Payload import does not require original UE cooked game data and must not modify the .mat file.
+
 TextureOut=...
   Optional Unity Assets-relative output folder for ExportMissingTextures.
   Default expectation: Assets/Art/Recovered/Subnautica2
@@ -109,6 +113,27 @@ When `ExportMissingTextures` is requested from a workspace directory:
 4. Use Source.Game, Source.Paks, and Source.Mapping from Bundle\manifest.json.
 5. Call CUE4Parse.ShaderBundleExporter --export-missing-unity-textures.
 6. Do not pass --apply to unity_material_apply_ue_params.py in this sub-step.
+```
+
+Missing texture recovery source order:
+
+```text
+1. Existing Unity texture assets with .meta GUIDs under AssetsRoot / TextureSearchRoot.
+2. Bundle texture_payload/manifest.json, if present.
+3. Original UE cooked game data through explicit ExportMissingTextures.
+4. If none are available, stop and report that missing Unity textures cannot be recovered from this bundle alone.
+```
+
+When texture payload exists and DryRun reports `MissingTextureGuids`:
+
+```text
+1. Read Bundle\texture_payload\manifest.json.
+2. Copy only textures needed by MissingTextureExportCandidates into Unity Assets.
+3. Copy sidecar JSON files with those textures.
+4. Do not modify the .mat file.
+5. Let Unity import textures and generate .meta files.
+6. Rerun DryRun.
+7. Apply only after MissingTextureGuids is empty or remaining missing textures are explicitly accepted.
 ```
 
 When neither `Apply` nor `ExportMissingTextures` is present:
@@ -334,6 +359,26 @@ Rules:
 Use this only after DryRun reports `MissingTextureGuids` and the report contains `MissingTextureExportCandidates`.
 
 Do not run this during `PROMPT_NEXT_SESSION.md` shader reconstruction. Do not combine it with `Apply`.
+
+If the bundle contains `texture_payload/manifest.json`, prefer payload import first:
+
+```powershell
+python <FModelRepo>\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\import_bundle_texture_payload.py `
+  --bundle "BUNDLE_DIR" `
+  --restore-report "DRYRUN_REPORT.json" `
+  --unity-assets-root "<UnityProject>\Assets" `
+  --texture-out "Assets/Art/Recovered/Subnautica2"
+```
+
+Payload import output:
+
+```text
+<Bundle>\unity_texture_payload_import_report.json
+<UnityAssetsRoot>\<TextureOut>\Game\...\TextureName.png
+<UnityAssetsRoot>\<TextureOut>\Game\...\TextureName.png.ue_texture_export.json
+```
+
+Only use the cooked-data export command below when the bundle has no payload, when the payload is incomplete, or when the user explicitly wants to regenerate textures from original UE cooked data.
 
 Command shape:
 

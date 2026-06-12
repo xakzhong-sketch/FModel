@@ -4,6 +4,14 @@ Objective: use `CUE4Parse.ShaderBundleExporter` in `D:\Github\FModel` to export 
 
 Do not reconstruct a Unity shader in this task. Only export, refresh semantic analysis, generate Agent docs, and verify the bundle.
 
+This is the lightweight first-step export. It includes shader data, material parameters, texture references, and cooked texture metadata, but it does not include decoded Unity-importable texture image payload files.
+
+If the bundle will be distributed to users or Agents without original UE cooked game data and missing Unity textures must be recoverable from the bundle itself, use the payload export Goal instead:
+
+```text
+/Goal D:\Github\FModel\Doc\UE_Cooked_Material_Bundle_With_TexturePayload_Export_Goal.md 当前目录导出 MI_Name 材质
+```
+
 ## How To Invoke This Goal
 
 Preferred forms:
@@ -217,6 +225,36 @@ Agent workspace docs: updated
 Verify: OK
 ```
 
+## Generated Agent Docs Rule
+
+Agent workspace Markdown and local skill files are exporter output, not hand-authored fixups.
+
+Do not manually edit these files inside the exported bundle to satisfy audit or verification requirements:
+
+```text
+README.md
+AGENTS.md
+WORKFLOW.md
+NEXT_TASK.md
+PROMPT_NEXT_SESSION.md
+UE_Unity_Material_Semantic_Visual_Validation_Goal.md
+UE_Unity_Material_OneClick_Reconstruction_Goal.md
+UE_Unity_Material_OneClick_NoVisual_Reconstruction_Goal.md
+skills/unity6-urp-deferred-shader-reconstruction/SKILL.md
+agent_context.json
+```
+
+If any of those files are missing, stale, contain machine-local paths, or fail `--verify-only`:
+
+```text
+1. Do not patch bundle Markdown by hand.
+2. Re-run full export, or run --semantic-only OUTPUT_BUNDLE / --context-only OUTPUT_BUNDLE.
+3. Re-run --verify-only OUTPUT_BUNDLE.
+4. If verification still fails, stop and report the exporter template/verifier failure.
+```
+
+Manual bundle edits hide exporter bugs and are not reproducible for batch distribution.
+
 ## Required Output Files
 
 The bundle should contain:
@@ -403,7 +441,7 @@ If analysis/renderdoc/renderdoc_runtime_overlay.md does not exist:
 ```text
 When opened through PROMPT_NEXT_SESSION.md without explicit UnityRoot=... or Mat=...:
   read only the bundle and any already-known target shader output path.
-  do not recursively inspect K:\WorkSpace\trunk\ExportedProject\Assets.
+  do not recursively inspect <UnityProject>/Assets.
   do not recursively inspect any Unity Assets tree.
   do not create Unity .mat files.
   do not assign shaders to Unity .mat files.
@@ -448,9 +486,11 @@ The task is complete only when:
    analysis/unity_shader_assignment.json
    analysis/unity_layer_reconstruction_contract.json
 7. AGENTS.md and WORKFLOW.md exist in the bundle root.
-8. AGENTS.md, WORKFLOW.md, NEXT_TASK.md, PROMPT_NEXT_SESSION.md, UE_Unity_Material_Semantic_Visual_Validation_Goal.md, and the local skill mention the Unity Properties preservation rule, the Unity project access boundary, and the optional post-restore semantic visual validation step.
+8. AGENTS.md, WORKFLOW.md, NEXT_TASK.md, PROMPT_NEXT_SESSION.md, UE_Unity_Material_Semantic_Visual_Validation_Goal.md, UE_Unity_Material_OneClick_Reconstruction_Goal.md, UE_Unity_Material_OneClick_NoVisual_Reconstruction_Goal.md, and the local skill mention the Unity Properties preservation rule, the Unity project access boundary, and the optional post-restore semantic visual validation step where applicable.
 9. --verify-only returns Verify: OK.
-10. Final response reports the material path, output bundle path, and verification result.
+10. No bundle Agent Markdown, local skill file, or agent_context.json contains machine-local paths such as D:\..., K:\..., or C:\....
+11. No generated bundle Agent docs were manually patched; they came from full export, --semantic-only, or --context-only.
+12. Final response reports the material path, output bundle path, and verification result.
 ```
 
 If any step fails, report the exact failed command, exit result, and the missing or invalid file.
