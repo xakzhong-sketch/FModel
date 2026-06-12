@@ -238,6 +238,7 @@ WORKFLOW.md
 NEXT_TASK.md
 PROMPT_NEXT_SESSION.md
 UE_Unity_Material_Semantic_Visual_Validation_Goal.md
+UE_Unity_Material_Lightweight_Visual_Smoke_Goal.md
 UE_Unity_Material_OneClick_Reconstruction_Goal.md
 UE_Unity_Material_OneClick_NoVisual_Reconstruction_Goal.md
 skills/unity6-urp-deferred-shader-reconstruction/SKILL.md
@@ -265,6 +266,7 @@ WORKFLOW.md
 NEXT_TASK.md
 PROMPT_NEXT_SESSION.md
 UE_Unity_Material_Semantic_Visual_Validation_Goal.md
+UE_Unity_Material_Lightweight_Visual_Smoke_Goal.md
 agent_context.json
 manifest.json
 analysis/semantic_status.json
@@ -307,6 +309,7 @@ For later Unity reconstruction, a new Agent should start with:
 AGENTS.md
 WORKFLOW.md
 UE_Unity_Material_Semantic_Visual_Validation_Goal.md
+UE_Unity_Material_Lightweight_Visual_Smoke_Goal.md
 analysis/ai_context_pack.md
 analysis/ai_context_pack.json
 analysis/reconstruction_entrypoints.json
@@ -418,13 +421,21 @@ Doc/UE_Unity_Material_Property_Restore_Goal.md
 
 That restore step should use `--layer-aware` when `analysis/material_layer_parameter_bindings.json` exists. It reads StableKey-derived Unity property names first, falls back to legacy name matching only when the layer-aware map is missing, writes an audit report, and only modifies the `.mat` when explicitly run with `--apply`.
 
-After material restore succeeds with explicit `Apply`, semantic visual validation can be run when the workspace has original-game references under `VisualRefs` or the user requests validation:
+After material restore succeeds with explicit `Apply`, choose the post-restore validation goal from the available evidence.
+
+When the workspace has original-game references under `VisualRefs` / `ScreenShot*`, or the user requests reference-based semantic validation, run:
 
 ```text
 /goal UE_Unity_Material_Semantic_Visual_Validation_Goal.md
 ```
 
-This is a separate post-restore step. Future exported bundle directories must include this local goal file. It must read compact semantic reports/advice before raw screenshots or diff images, it must prefer decoded semantic GBuffer/material channel captures over raw GBuffer attachments, and it must not create, assign, inspect, or restore Unity `.mat` files.
+When there are no references but the user has opened the Unity scene containing the target object and centered it in GameView, run:
+
+```text
+/goal UE_Unity_Material_Lightweight_Visual_Smoke_Goal.md
+```
+
+These are separate post-restore steps. Future exported bundle directories must include both local goal files. Semantic validation must read compact semantic reports/advice before raw screenshots or diff images, prefer decoded semantic GBuffer/material channel captures over raw GBuffer attachments, and must not create, assign, inspect, or restore Unity `.mat` files. Lightweight smoke validation is no-reference validation: it may fail obvious rendering errors or contradictions between implemented shader features and the current Unity render, but it must not claim high-fidelity UE visual parity.
 
 `PROMPT_NEXT_SESSION.md`, `AGENTS.md`, `WORKFLOW.md`, and `agent_context.json` must support both cases:
 
@@ -459,13 +470,14 @@ If reuse evidence is missing or stale:
 Only read Unity .mat files or texture asset folders in the separate material restore step:
   Doc\UE_Unity_Material_Property_Restore_Goal.md
 
-After material restore Apply, optional semantic visual validation lives in:
+After material restore Apply, optional post-restore validation lives in:
   UE_Unity_Material_Semantic_Visual_Validation_Goal.md
+  UE_Unity_Material_Lightweight_Visual_Smoke_Goal.md
   analysis/unity_visual_validation/visual_validation_report.md
   analysis/unity_visual_validation/visual_validation_report.json
   analysis/unity_visual_validation/visual_validation_advice.json
 
-Visual validation compact reports/advice must be read before raw screenshot/capture/diff files. Decoded semantic captures such as albedo.png, normal_world.png, metallic.png, smoothness.png, and occlusion.png are the primary Deferred surface evidence; raw_gbuffer0/1/2.png are debugging evidence only.
+Semantic validation compact reports/advice must be read before raw screenshot/capture/diff files. Decoded semantic captures such as albedo.png, normal_world.png, metallic.png, smoothness.png, and occlusion.png are the primary Deferred surface evidence; raw_gbuffer0/1/2.png are debugging evidence only. Lightweight smoke validation can use the current GameView and optional semantic captures to catch obvious feature/render contradictions when no reference images exist.
 ```
 
 ## Completion Criteria
@@ -486,7 +498,7 @@ The task is complete only when:
    analysis/unity_shader_assignment.json
    analysis/unity_layer_reconstruction_contract.json
 7. AGENTS.md and WORKFLOW.md exist in the bundle root.
-8. AGENTS.md, WORKFLOW.md, NEXT_TASK.md, PROMPT_NEXT_SESSION.md, UE_Unity_Material_Semantic_Visual_Validation_Goal.md, UE_Unity_Material_OneClick_Reconstruction_Goal.md, UE_Unity_Material_OneClick_NoVisual_Reconstruction_Goal.md, and the local skill mention the Unity Properties preservation rule, the Unity project access boundary, and the optional post-restore semantic visual validation step where applicable.
+8. AGENTS.md, WORKFLOW.md, NEXT_TASK.md, PROMPT_NEXT_SESSION.md, UE_Unity_Material_Semantic_Visual_Validation_Goal.md, UE_Unity_Material_Lightweight_Visual_Smoke_Goal.md, UE_Unity_Material_OneClick_Reconstruction_Goal.md, UE_Unity_Material_OneClick_NoVisual_Reconstruction_Goal.md, and the local skill mention the Unity Properties preservation rule, the Unity project access boundary, and the optional post-restore validation steps where applicable.
 9. --verify-only returns Verify: OK.
 10. No bundle Agent Markdown, local skill file, or agent_context.json contains machine-local paths such as D:\..., K:\..., or C:\....
 11. No generated bundle Agent docs were manually patched; they came from full export, --semantic-only, or --context-only.
