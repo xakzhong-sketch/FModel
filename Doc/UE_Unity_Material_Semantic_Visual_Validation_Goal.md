@@ -59,6 +59,8 @@ Reference directory rules:
 
 If no usable reference directory is found, continue only far enough to create config and report `needs_reference`; do not claim visual validation passed.
 
+If generic FinalColor references exist but semantic channel references do not, do not stop after reporting `needs_reference` for semantic channels. Enter FinalColor fallback visual alignment mode. In that mode, semantic parity remains unproven, but visible mismatches against the reference image must still be reviewed, attributed where possible, conservatively fixed when backed by bundle/shader/material evidence, and recaptured.
+
 ## Bug Fix Discipline
 
 Visual validation may guide investigation, but it must not directly justify shader, material, texture import, mesh, or validation-tool edits.
@@ -80,7 +82,7 @@ Runtime Only:
 
 Visual Only:
   Evidence comes only from screenshots, final lit captures, or subjective comparison.
-  Use it to prioritize investigation only. Do not edit from it alone.
+  Use it to prioritize investigation. It can drive a conservative FinalColor fallback fix only when the current shader/material implementation and bundle evidence identify a plausible cause; label the fix as FinalColor-driven and do not claim semantic parity.
 ```
 
 Before changing anything, prove all of these:
@@ -94,7 +96,26 @@ Before changing anything, prove all of these:
 5. Have a validation plan that can prove the intended semantic channel changed.
 ```
 
-If any item is missing, stop and write the missing evidence instead of editing.
+If any item is missing and no FinalColor fallback reference exists, stop and write the missing evidence instead of editing.
+
+If FinalColor fallback references exist, keep semantic channels marked `needs_reference`, then continue with visible-difference triage. Fix only the smallest shader/material-binding issue that is supported by both the visible mismatch and local evidence such as shader code, `.mat` YAML, texture GUIDs/import settings, material layer bindings, or cooked bundle contracts.
+
+## FinalColor Fallback Visual Alignment Mode
+
+Use this mode when the workspace has ordinary game screenshots but no semantic reference PNGs.
+
+Required behavior:
+
+1. Do not mark the task complete merely because semantic channels are `needs_reference`.
+2. Compare `lit_final.png` / GameView capture against the generic reference screenshot.
+3. Identify visible issues, for example wrong dominant color, missing texture detail, flat fallback output, wrong alpha/mask coverage, obvious UV scale/offset error, missing layer contribution, over-strong/flat normal response, roughness/smoothness mismatch visible in highlights, or lighting/setup mismatch.
+4. Separate material/shader problems from scene/camera/lighting/post-process/reference mismatch.
+5. When a visible issue maps to a known implemented shader feature or material binding, inspect only the relevant shader/module/`.mat`/texture metadata and apply the smallest conservative fix.
+6. Recompile/import the shader, recapture the current scene, rerun diff/advisor, and repeat until there are no obvious material-driven final-color mismatches or remaining issues are explicitly classified as lighting/reference/runtime limitations.
+
+This mode may improve visual alignment, but the final report must say that semantic parity for BaseColor, Normal, Smoothness/Roughness, Metallic, AO, Alpha, LayerBlend, and HeightBlend remains unproven without semantic references or stronger runtime evidence.
+
+Do not use FinalColor fallback mode to justify broad graph rewrites, speculative channel swaps, mesh data edits, or renderer-tool changes.
 
 For layered/generated materials, determine source layer order, blend order, texture/parameter roles, sampled Unity property/register evidence, and Unity `.mat` GUIDs before changing bindings. Do not generalize anonymous texture registers, Unity property slots, real texture names, screenshots, or one-off fixes into reusable workflow docs; put those in material-specific audit notes.
 
@@ -218,7 +239,7 @@ blocked_unity_version:
   Do not run a mismatched Unity editor. Install/pass the exact Unity version from ProjectSettings\ProjectVersion.txt.
 
 needs_reference:
-  Add semantic PNG references under VisualRefs, or final-color screenshots under ScreenShot* for secondary review only.
+  Add semantic PNG references under VisualRefs. If generic final-color screenshots already exist, continue with FinalColor fallback visual alignment mode instead of stopping.
 
 capture_complete:
   Continue to diff/advisor or inspect existing compact reports.
@@ -639,7 +660,7 @@ fail:
   read visual_validation_advice.json and fix shader/module logic or material binding according to issue category.
 
 needs_reference:
-  VisualRefs are missing or not semantic-comparable. Ask for references or continue with capture-only evidence.
+  VisualRefs are missing or not semantic-comparable. If generic final-color references exist, continue with FinalColor fallback visual alignment mode; otherwise ask for references or continue with capture-only evidence only.
 
 needs_review:
   some captures or references are missing/unsupported. Fix setup before judging shader fidelity.
@@ -649,7 +670,7 @@ Do not treat this report as UE source material graph recovery.
 
 ## Fix Loop
 
-If validation fails:
+If validation fails or reports `needs_review` / `needs_reference` while generic FinalColor references exist:
 
 1. Read:
 
@@ -662,9 +683,11 @@ UnityValidation\reports\contact_sheet.png
 
 2. Inspect only issue-specific shader/module files.
 3. Do not modify `.mat` unless advice category is `material_binding`; use material restore Goal for `.mat`.
-4. Re-run shader semantic capture or GBuffer semantic capture, then diff and advisor.
-5. Stop only when:
+4. If semantic references are missing but final-color references exist, perform FinalColor fallback visual alignment: inspect visible mismatch, cross-check local shader/material/bundle evidence, apply only the smallest conservative fix, then recapture.
+5. Re-run shader semantic capture or GBuffer semantic capture, then diff and advisor.
+6. Stop only when:
    - report passes, or
+   - FinalColor fallback no longer shows obvious material-driven mismatch, while semantic channels are clearly documented as `needs_reference`, or
    - remaining issues are documented as reference/lighting/runtime limitations.
 
 ## Completion Criteria

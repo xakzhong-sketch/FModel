@@ -74,7 +74,7 @@ If ROOT_DIR contains multiple *.bundle directories:
 
 If ROOT_DIR contains a RenderDocCapture directory or any RenderDoc drawcall export:
   do not process it during this cooked bundle export step.
-  after the bundle export succeeds, the user or Agent may run Doc\UE_RenderDoc_Compact_Summary_Goal.md with Root=ROOT_DIR.
+  after the bundle export succeeds, the user or Agent may run OUTPUT_BUNDLE\UE_RenderDoc_Compact_Summary_Goal.md from ROOT_DIR.
 ```
 
 ## Project Directory
@@ -237,6 +237,7 @@ AGENTS.md
 WORKFLOW.md
 NEXT_TASK.md
 PROMPT_NEXT_SESSION.md
+UE_RenderDoc_Compact_Summary_Goal.md
 UE_Unity_Material_Semantic_Visual_Validation_Goal.md
 UE_Unity_Material_Lightweight_Visual_Smoke_Goal.md
 UE_Unity_Material_OneClick_Reconstruction_Goal.md
@@ -265,6 +266,7 @@ AGENTS.md
 WORKFLOW.md
 NEXT_TASK.md
 PROMPT_NEXT_SESSION.md
+UE_RenderDoc_Compact_Summary_Goal.md
 UE_Unity_Material_Semantic_Visual_Validation_Goal.md
 UE_Unity_Material_Lightweight_Visual_Smoke_Goal.md
 agent_context.json
@@ -308,6 +310,7 @@ For later Unity reconstruction, a new Agent should start with:
 ```text
 AGENTS.md
 WORKFLOW.md
+UE_RenderDoc_Compact_Summary_Goal.md
 UE_Unity_Material_Semantic_Visual_Validation_Goal.md
 UE_Unity_Material_Lightweight_Visual_Smoke_Goal.md
 analysis/ai_context_pack.md
@@ -389,8 +392,10 @@ RenderDoc is optional. The default bundle export remains a pure UE cooked static
 If the user has a RenderDoc current-drawcall export for the same material, generate compact runtime evidence with:
 
 ```text
-Doc/UE_RenderDoc_Compact_Summary_Goal.md
+OUTPUT_BUNDLE\UE_RenderDoc_Compact_Summary_Goal.md
 ```
+
+Use the canonical `<FModelRepo>\Doc\UE_RenderDoc_Compact_Summary_Goal.md` only if the bundle-local file is missing or stale.
 
 Preferred output location:
 
@@ -498,7 +503,7 @@ The task is complete only when:
    analysis/unity_shader_assignment.json
    analysis/unity_layer_reconstruction_contract.json
 7. AGENTS.md and WORKFLOW.md exist in the bundle root.
-8. AGENTS.md, WORKFLOW.md, NEXT_TASK.md, PROMPT_NEXT_SESSION.md, UE_Unity_Material_Semantic_Visual_Validation_Goal.md, UE_Unity_Material_Lightweight_Visual_Smoke_Goal.md, UE_Unity_Material_OneClick_Reconstruction_Goal.md, UE_Unity_Material_OneClick_NoVisual_Reconstruction_Goal.md, and the local skill mention the Unity Properties preservation rule, the Unity project access boundary, and the optional post-restore validation steps where applicable.
+8. AGENTS.md, WORKFLOW.md, NEXT_TASK.md, PROMPT_NEXT_SESSION.md, UE_RenderDoc_Compact_Summary_Goal.md, UE_Unity_Material_Semantic_Visual_Validation_Goal.md, UE_Unity_Material_Lightweight_Visual_Smoke_Goal.md, UE_Unity_Material_OneClick_Reconstruction_Goal.md, UE_Unity_Material_OneClick_NoVisual_Reconstruction_Goal.md, and the local skill mention the Unity Properties preservation rule, the Unity project access boundary, the optional RenderDoc compact summary step, and the optional post-restore validation steps where applicable.
 9. --verify-only returns Verify: OK.
 10. No bundle Agent Markdown, local skill file, or agent_context.json contains machine-local paths such as D:\..., K:\..., or C:\....
 11. No generated bundle Agent docs were manually patched; they came from full export, --semantic-only, or --context-only.

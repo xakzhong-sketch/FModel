@@ -22,6 +22,8 @@ If the bundle provides a local copy, prefer:
 
 The user should manually open the Unity scene that contains an object using the target material and place that object near the center of GameView.
 
+This goal is current-scene/current-GameView validation only. Do not switch to a material-preview scene, do not create a preview plane, do not assign `Mat=...` to a preview object, and do not launch a separate preview capture path unless the user explicitly asks for preview-scene validation.
+
 Use the current Unity editor process when possible. Do not launch a second Unity process if the project is already open.
 
 ## Scope
@@ -38,6 +40,7 @@ This goal must not:
 - run RenderDoc compact summary;
 - restore material properties or export missing textures;
 - recursively inspect the full Unity `Assets` tree;
+- switch scenes, create preview geometry, assign a material to preview geometry, or run a "specified material preview capture" fallback;
 - claim high-fidelity UE parity without semantic references or RenderDoc/cooked proof.
 
 ## Required Read Order
@@ -73,6 +76,8 @@ If this gate fails, stop and report `Fail`. Do not proceed to screenshot interpr
 
 Capture the currently open scene after the user has centered the target object in GameView.
 
+`Mat=...` identifies the expected target material for validation and report labeling. It must not be interpreted as permission to build a separate material preview scene or to capture a different object than the one already visible in the current GameView.
+
 Preferred outputs:
 
 ```text
@@ -88,6 +93,17 @@ UnityValidation/lightweight_smoke/
 ```
 
 If decoded semantic captures are unavailable, use `gameview.png` only and mark channel-specific conclusions as `Inconclusive` unless the failure is visually obvious.
+
+## Capture Setup Mismatch
+
+If the capture manifest, selected renderer, picked object, or validation metadata shows that the current GameView capture used a different material than the requested `Mat=...` target, stop and report `Needs Evidence / Capture Setup Mismatch`.
+
+In that case:
+
+- do not treat the captured images as target-material evidence;
+- do not fall back to a specified-material preview capture;
+- do not switch scenes or assign the target material to a preview plane;
+- ask the user to confirm that the target object using the requested material is centered in the current GameView, then rerun this same current-scene validation goal.
 
 ## Smoke Checks
 

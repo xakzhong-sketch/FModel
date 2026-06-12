@@ -13,6 +13,11 @@ WORKFLOW.md
 NEXT_TASK.md
 PROMPT_NEXT_SESSION.md
 agent_context.json
+UE_RenderDoc_Compact_Summary_Goal.md
+UE_Unity_Material_Semantic_Visual_Validation_Goal.md
+UE_Unity_Material_Lightweight_Visual_Smoke_Goal.md
+UE_Unity_Material_OneClick_Reconstruction_Goal.md
+UE_Unity_Material_OneClick_NoVisual_Reconstruction_Goal.md
 skills/unity6-urp-deferred-shader-reconstruction/SKILL.md
 commands/verify_bundle.ps1
 commands/refresh_context.ps1
