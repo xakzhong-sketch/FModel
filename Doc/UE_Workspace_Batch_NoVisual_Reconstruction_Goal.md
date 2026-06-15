@@ -122,6 +122,7 @@ Rules:
 - Use `--run-generator` only when the goal is allowed to write generated Unity shader/module files.
 - Use `--run-restore-dryrun` to produce/update `analysis/unity_material_restore_report.json` without writing `.mat`.
 - Use `--run-compile-check --unity-exe <Unity.exe>` to run Unity batchmode `SN2ShaderValidation.Run` and write `analysis/unity_shader_compile_report.json`.
+  The helper must install `CUE4Parse/CUE4Parse.ShaderBundleExporter/Tools/unity_shader_validation/SN2ShaderValidation.cs.txt` into `Assets/Editor/ShaderReverse/Validation/SN2ShaderValidation.cs` if the Unity project does not already have the current runner. Do not hand-author a replacement validation script during batch reconstruction.
 - Use `--apply --apply-confirm WRITE_MAT` only when the current `/goal` invocation explicitly asks to apply material values.
 - Keep Unity writes serialized; do not run multiple helper instances against the same Unity project.
 - The helper writes command logs under `<Bundle>/analysis/batch_no_visual/` with command, exit code, stdout bytes, and stderr bytes.
