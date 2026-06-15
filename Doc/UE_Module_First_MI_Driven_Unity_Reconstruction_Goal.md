@@ -102,6 +102,27 @@ Before writing shader code:
 
 Parameter values do not create new shaders. They create different Unity `.mat` files.
 
+Reuse assignment is a workflow decision, not a mathematical DXIL equivalence proof. If later semantic visual validation, selected DXIL dataflow, RenderDoc runtime evidence, or material/layer contract review proves that a `reuse_existing` assignment is missing required layer/blend/static-permutation behavior for this MI, do not force-fit the MI by silently editing material parameters or broad-patching the shared shader. Reclassify the implementation path:
+
+```text
+reuse_existing -> extend_existing
+  when the assigned shared shader is mostly correct and needs a guarded module branch or feature path that will not regress already validated MIs.
+
+reuse_existing -> create_new
+  when the MI requires incompatible layer/blend/static-permutation behavior or the shared shader change would risk validated MIs.
+```
+
+When reclassification is required, update the reconstruction handoff/registry evidence with:
+
+```text
+original assignment
+new recommended assignment
+specific evidence that invalidated reuse
+affected shader/module files
+validated MI regression risk
+next required goal
+```
+
 ## Fidelity Bar
 
 This goal is not complete if it only produces a compileable scaffold.

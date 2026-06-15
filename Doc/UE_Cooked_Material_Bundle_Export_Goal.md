@@ -1,8 +1,8 @@
 # Goal: Export UE Cooked Material Shader Bundle
 
-Objective: use `CUE4Parse.ShaderBundleExporter` in `D:\Github\FModel` to export one UE cooked material shader bundle, verify it, and leave an AI-friendly workspace for later Unity shader reconstruction.
+Objective: use `CUE4Parse.ShaderBundleExporter` in `D:\Github\FModel` to export one UE cooked material shader bundle, or a batch of bundles from a Unity `.mat` directory, verify the result, and leave an AI-friendly workspace for later Unity shader reconstruction.
 
-Do not reconstruct a Unity shader in this task. Only export, refresh semantic analysis, generate Agent docs, and verify the bundle.
+Do not reconstruct a Unity shader in this task. Only export, refresh semantic analysis, generate Agent docs, generate batch mapping when applicable, and verify the bundle/workspace.
 
 This is the lightweight first-step export. It includes shader data, material parameters, texture references, and cooked texture metadata, but it does not include decoded Unity-importable texture image payload files.
 
@@ -26,6 +26,8 @@ Preferred forms:
 /Goal D:\Github\FModel\Doc\UE_Cooked_Material_Bundle_Export_Goal.md 导出 M_Character_Teeth 材质
 
 /Goal D:\Github\FModel\Doc\UE_Cooked_Material_Bundle_Export_Goal.md Material=/Game/Art/Environment/Biome/CoralGarden/Rocks/Material/MI_CG_RockSmooth_01a Out=K:\WorkSpace\SR1\MI_CG_RockSmooth_01a.bundle
+
+/Goal D:\Github\FModel\Doc\UE_Cooked_Material_Bundle_Export_Goal.md UnityMatDir=K:\WorkSpace\Project_Dive\Assets\Art\Environment
 ```
 
 Argument rules:
@@ -61,6 +63,17 @@ If no matching path can be found:
 If the user provides Out=...:
   use that as --out.
 
+If the user provides UnityMatDir=...:
+  this is batch export mode.
+  record ROOT_DIR as the batch output root.
+  recursively scan UnityMatDir for .mat files.
+  the exporter maps each Unity .mat Assets-relative path to a UE /Game material path.
+  Example: Assets/Art/Environment/Biome/CoralGarden/Rocks/Material/MI_CG_RockPebbles_01a.mat maps to /Game/Art/Environment/Biome/CoralGarden/Rocks/Material/MI_CG_RockPebbles_01a.
+  pass UnityMatDir to the exporter as --unity-mat-dir and ROOT_DIR as --out-root.
+  do not ask the user to prepare MaterialMap.json.
+  after export succeeds, the batch root must contain MaterialMap.json, summary.json, batch_manifest.json, and UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md.
+  later batch NoVisual reconstruction should use `/goal UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md` from ROOT_DIR.
+
 If the user does not provide Out=...:
   if ROOT_DIR is a user workspace directory, write to ROOT_DIR\<MaterialAssetName>.bundle.
   if ROOT_DIR cannot be determined or is a tool/repo directory, stop and ask for Out=....
@@ -71,10 +84,28 @@ If ROOT_DIR already contains exactly one *.bundle directory and its name matches
 
 If ROOT_DIR contains multiple *.bundle directories:
   list the candidates and ask the user to provide Out=....
+  do not generate or use bare bundle-local /goal <GoalFile>.md launchers from ROOT_DIR.
+  later per-material work must use Bundle\Goal.md, Bundle=..., or UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md.
 
 If ROOT_DIR contains a RenderDocCapture directory or any RenderDoc drawcall export:
   do not process it during this cooked bundle export step.
-  after the bundle export succeeds, the user or Agent may run OUTPUT_BUNDLE\UE_RenderDoc_Compact_Summary_Goal.md from ROOT_DIR.
+  after the bundle export succeeds, move/copy new RenderDoc drawcall exports under OUTPUT_BUNDLE\RenderDocCapture before running compact summary.
+```
+
+Batch UnityMatDir rules:
+
+```text
+If UnityMatDir is present:
+  ignore Material=... and Out=... unless the user explicitly asks for a single bundle export instead.
+  require ROOT_DIR to be a user workspace directory.
+  require UnityMatDir to be inside a Unity Assets directory so Assets-relative paths can be derived.
+  do not write the batch output into D:\Github\FModel.
+  pass --include-texture-payload --texture-payload-mode shared unless the user explicitly asks for no payload or bundle-local payload.
+  duplicate .mat file names are allowed when their Assets-relative paths are different.
+  when duplicate .mat file names exist, use the Assets-relative path to derive the exact /Game path and use a path-derived bundle folder name to avoid overwriting.
+  if the derived /Game path does not exist in cooked UE data, report that Unity .mat as not found.
+  do not fall back to same-name search.
+  even if cooked UE data contains another material with the same asset name under a different relative path, treat it as not matching this Unity .mat.
 ```
 
 ## Project Directory
@@ -191,6 +222,52 @@ dotnet run --project CUE4Parse\CUE4Parse.ShaderBundleExporter\CUE4Parse.ShaderBu
   --verbose
 ```
 
+## Batch Export From Unity .mat Directory
+
+If the user supplied `UnityMatDir=...`, replace `UNITY_MAT_DIR` and use `ROOT_DIR` as `OUTPUT_ROOT`:
+
+```powershell
+dotnet run --project CUE4Parse\CUE4Parse.ShaderBundleExporter\CUE4Parse.ShaderBundleExporter.csproj -c Release -- `
+  --game Subnautica2 `
+  --paks "D:\Tmp\Subnautica.2.v.0.10.1.Early.Access\Subnautica2\Subnautica2\Content\Paks" `
+  --mapping "D:\Tmp\Subnautica.2.v.0.10.1.Early.Access\Subnautica2\5.6.1-114707+++Project+SN2-Release-Hotfix-Live-Subnautica2.usmap" `
+  --unity-mat-dir "UNITY_MAT_DIR" `
+  --out-root "OUTPUT_ROOT" `
+  --include-layer-stack `
+  --include-master-modules `
+  --include-texture-payload `
+  --texture-payload-mode shared `
+  --decompress-shader "D:\Github\UEShaderMapExtractor\Build\decompress_shader.exe" `
+  --overwrite `
+  --verbose
+```
+
+Expected batch outputs:
+
+```text
+OUTPUT_ROOT\MI_A.bundle
+OUTPUT_ROOT\MI_B.bundle
+OUTPUT_ROOT\Textures
+OUTPUT_ROOT\MaterialMap.json
+OUTPUT_ROOT\summary.json
+OUTPUT_ROOT\batch_manifest.json
+OUTPUT_ROOT\UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md
+```
+
+After batch export, verify the batch root:
+
+```powershell
+dotnet run --project CUE4Parse\CUE4Parse.ShaderBundleExporter\CUE4Parse.ShaderBundleExporter.csproj -c Release -- `
+  --verify-only "OUTPUT_ROOT" `
+  --verbose
+```
+
+Later NoVisual reconstruction can be started from `OUTPUT_ROOT` with:
+
+```text
+/goal UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md
+```
+
 ## Verify Command
 
 After export, run:
@@ -293,6 +370,35 @@ shaders/*.dxil
 shaders/*.dxil.ll
 ```
 
+When `ROOT_DIR` contains exactly one `.bundle` directory, the exporter should also generate workspace-root goal launcher files beside that bundle:
+
+```text
+PROMPT_NEXT_SESSION.md
+UE_RenderDoc_Compact_Summary_Goal.md
+UE_Unity_Material_Semantic_Visual_Validation_Goal.md
+UE_Unity_Material_Lightweight_Visual_Smoke_Goal.md
+UE_Unity_Material_OneClick_Reconstruction_Goal.md
+UE_Unity_Material_OneClick_NoVisual_Reconstruction_Goal.md
+```
+
+These launchers are convenience entrypoints only. A future Agent should be able to run `/goal <GoalFile>.md` from `ROOT_DIR`; the launcher must resolve the real bundle-local file from the only `.bundle` directory. If zero or multiple bundles exist, the Agent must ask for `Bundle=...` and must not guess.
+
+When `ROOT_DIR` contains multiple `.bundle` directories, do not generate ambiguous workspace-root bundle-local launchers. Multi-bundle workspaces should use:
+
+```text
+/goal <Bundle>\UE_Unity_Material_OneClick_NoVisual_Reconstruction_Goal.md -mat <UnityMat>
+/goal UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md
+```
+
+Batch/multi-bundle exports should also contain:
+
+```text
+batch_manifest.json
+MaterialMap.json
+MaterialMap.example.json
+UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md
+```
+
 Optional RenderDoc compact runtime evidence, if a RenderDoc drawcall export has been summarized into the bundle:
 
 ```text
@@ -392,10 +498,18 @@ RenderDoc is optional. The default bundle export remains a pure UE cooked static
 If the user has a RenderDoc current-drawcall export for the same material, generate compact runtime evidence with:
 
 ```text
-OUTPUT_BUNDLE\UE_RenderDoc_Compact_Summary_Goal.md
+/goal <Bundle>\UE_RenderDoc_Compact_Summary_Goal.md
 ```
 
 Use the canonical `<FModelRepo>\Doc\UE_RenderDoc_Compact_Summary_Goal.md` only if the bundle-local file is missing or stale.
+
+New RenderDoc drawcall exports should be placed under:
+
+```text
+OUTPUT_BUNDLE\RenderDocCapture
+```
+
+Workspace-root `RenderDocCapture` is a legacy fallback only and must not be guessed in multi-bundle workspaces.
 
 Preferred output location:
 

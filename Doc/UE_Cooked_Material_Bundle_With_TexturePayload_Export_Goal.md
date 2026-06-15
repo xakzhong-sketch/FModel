@@ -4,6 +4,14 @@ Objective: export one UE cooked material bundle and include an optional decoded 
 
 Use this Goal as the first workflow step when the bundle should be self-contained for missing Unity texture recovery.
 
+For multi-bundle workspaces, prefer the shared workspace texture store instead:
+
+```text
+--include-texture-payload --texture-payload-mode shared
+```
+
+Shared mode writes payloads to workspace `Textures/` and per-bundle references to `texture_payload_manifest.json`. This self-contained Goal uses `--texture-payload-mode bundle`.
+
 ## When To Use
 
 Choose between these first-step export Goals:
@@ -72,6 +80,7 @@ dotnet run --project <FModelRepo>\CUE4Parse\CUE4Parse.ShaderBundleExporter\CUE4P
   --paks "<GamePaks>" `
   --mapping "<GameMapping.usmap>" `
   --bundle "<Bundle>" `
+  --texture-payload-mode bundle `
   --payload-scope referenced_textures
 ```
 
@@ -86,6 +95,20 @@ Optional:
 ```
 
 For batch or one-command export implementations, `--include-texture-payload --payload-scope referenced_textures` may be used when supported. The final output must be equivalent to running normal export followed by `--export-bundle-texture-payload`.
+
+For a multi-bundle workspace, use:
+
+```text
+--include-texture-payload --texture-payload-mode shared
+```
+
+Expected shared output:
+
+```text
+<Workspace>/Textures/manifest.json
+<Workspace>/Textures/payload/Game/.../T_Name.png
+<Bundle>/texture_payload_manifest.json
+```
 
 ## Safety Rules
 
@@ -114,7 +137,7 @@ Material restore still runs separately:
 /goal <FModelRepo>/Doc/UE_Unity_Material_Property_Restore_Goal.md Mat=<Unity .mat> Bundle=<Bundle>
 ```
 
-If material restore DryRun reports missing texture GUIDs and `texture_payload/manifest.json` exists, import missing textures from payload before asking for original game data.
+If material restore DryRun reports missing texture GUIDs and `texture_payload/manifest.json` or `texture_payload_manifest.json` exists, import missing textures from payload before asking for original game data.
 
 ## Completion Criteria
 
@@ -130,4 +153,3 @@ This Goal is complete only when:
 7. Final response reports exported/skipped/failed/missing-object-path counts.
 8. If payload export is partial, final response identifies failed or missing texture ObjectPaths.
 ```
-

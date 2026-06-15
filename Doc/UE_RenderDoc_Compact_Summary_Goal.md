@@ -24,7 +24,7 @@ Preferred forms:
 
 /Goal D:\Github\FModel\Doc\UE_RenderDoc_Compact_Summary_Goal.md Root=K:\WorkSpace\ShaderReverse\M_LayerStandard
 
-/Goal D:\Github\FModel\Doc\UE_RenderDoc_Compact_Summary_Goal.md RenderDoc=K:\WorkSpace\ShaderReverse\M_LayerStandard\RenderDocCapture\EID_10965_[0]_arg0_IndirectDispatch_0,_1,_1 Bundle=K:\WorkSpace\ShaderReverse\M_LayerStandard\M_LayerStandard.bundle
+/Goal D:\Github\FModel\Doc\UE_RenderDoc_Compact_Summary_Goal.md RenderDoc=K:\WorkSpace\ShaderReverse\M_LayerStandard\M_LayerStandard.bundle\RenderDocCapture\EID_10965_[0]_arg0_IndirectDispatch_0,_1,_1 Bundle=K:\WorkSpace\ShaderReverse\M_LayerStandard\M_LayerStandard.bundle
 
 /Goal D:\Github\FModel\Doc\UE_RenderDoc_Compact_Summary_Goal.md 给 K:\...\EID_10965_[0]_arg0_IndirectDispatch_0,_1,_1 生成 compact summary
 
@@ -36,12 +36,13 @@ Argument rules:
 ```text
 No explicit arguments:
   Treat the current shell directory as Root.
-  Auto-detect exactly one RenderDoc current-drawcall export under Root.
   Auto-detect zero or one *.bundle directory under Root.
+  If a bundle is resolved, prefer exactly one RenderDoc current-drawcall export under <Bundle>\RenderDocCapture.
+  Legacy Root\RenderDocCapture detection is allowed only when exactly one bundle exists or Bundle=... is explicit.
 
 Root=...
   Convenience mode for a material work directory.
-  Auto-detect RenderDoc and Bundle the same way as no-argument mode.
+  Auto-detect Bundle first, then prefer Bundle\RenderDocCapture.
 
 RenderDoc=...
   Required unless the user clearly provides a RenderDoc current-drawcall export directory in natural language.
@@ -61,9 +62,15 @@ Out=...
 
 If the provided RenderDoc directory does not contain `drawcall.json`, do not guess. Report the missing file and ask for the correct current-drawcall export directory.
 
-If auto-detection finds multiple RenderDoc drawcall exports, list the candidates and ask the user to provide `RenderDoc=...`.
+If auto-detection finds multiple RenderDoc drawcall exports under `Bundle\RenderDocCapture`, list the candidates and ask the user to provide `RenderDoc=...`.
 
 If auto-detection finds multiple `*.bundle` directories, list the candidates and ask the user to provide `Bundle=...`.
+
+In a multi-bundle workspace, do not attach workspace-root RenderDoc data to a bundle by guesswork. New RenderDoc drawcall exports should be placed under the target bundle:
+
+```text
+<Bundle>\RenderDocCapture\EID_...
+```
 
 If `Bundle=...` is provided but the directory does not contain `shaders`, continue without shader matching only if the user explicitly wants runtime-only output. Otherwise report the mismatch.
 
@@ -161,7 +168,7 @@ Example:
 
 ```powershell
 python CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\renderdoc_compact_summary.py `
-  --renderdoc-dir "K:\WorkSpace\ShaderReverse\M_LayerStandard\RenderDocCapture\EID_10965_[0]_arg0_IndirectDispatch_0,_1,_1" `
+  --renderdoc-dir "K:\WorkSpace\ShaderReverse\M_LayerStandard\M_LayerStandard.bundle\RenderDocCapture\EID_10965_[0]_arg0_IndirectDispatch_0,_1,_1" `
   --bundle-dir "K:\WorkSpace\ShaderReverse\M_LayerStandard\M_LayerStandard.bundle" `
   --out-dir "K:\WorkSpace\ShaderReverse\M_LayerStandard\M_LayerStandard.bundle\analysis\renderdoc"
 ```

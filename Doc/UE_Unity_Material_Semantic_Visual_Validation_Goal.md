@@ -100,6 +100,34 @@ If any item is missing and no FinalColor fallback reference exists, stop and wri
 
 If FinalColor fallback references exist, keep semantic channels marked `needs_reference`, then continue with visible-difference triage. Fix only the smallest shader/material-binding issue that is supported by both the visible mismatch and local evidence such as shader code, `.mat` YAML, texture GUIDs/import settings, material layer bindings, or cooked bundle contracts.
 
+## Shader Reuse Revalidation
+
+Treat `analysis/unity_shader_assignment.json` as a provisional reconstruction decision. During visual validation, if evidence shows that a reused Unity shader is structurally wrong for this MI, revalidate the reuse decision before editing shared shader code.
+
+Required checks:
+
+```text
+1. Read analysis/unity_shader_assignment.json.
+2. Read analysis/unity_shader_reuse_key.json and analysis/unity_shader_reuse_candidates.json.
+3. Read the current shader registry entry if UnityRoot/registry is explicitly in scope.
+4. Identify whether the mismatch is caused by material parameters, texture import/binding, missing module branch, or incompatible shader structure.
+```
+
+Decision rules:
+
+```text
+reuse_existing remains valid
+  only when the mismatch can be fixed by this MI's .mat values, texture GUID/import settings, or a bug fix that is valid for all MIs sharing the shader.
+
+upgrade to extend_existing
+  when the shared shader needs a guarded Layer/Blend/Master branch, static feature path, or module correction that can be regression-checked against already validated MIs.
+
+upgrade to create_new
+  when the MI requires incompatible layer/blend/static-permutation behavior or a shared shader edit would likely regress already validated MIs.
+```
+
+Do not broad-patch a shared shader to satisfy one MI unless the evidence proves the change is correct for the shared module contract. If reuse is invalidated, write the old/new assignment, evidence, regression risk, affected files, and recommended next goal into `analysis/unity_visual_validation` and the bundle handoff summary.
+
 ## FinalColor Fallback Visual Alignment Mode
 
 Use this mode when the workspace has ordinary game screenshots but no semantic reference PNGs.

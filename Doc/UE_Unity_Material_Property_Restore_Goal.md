@@ -83,7 +83,7 @@ ExportMissingTextures
   This must not be combined with Apply and must not modify the .mat file.
 
 Texture payload import
-  If DryRun reports MissingTextureGuids and Bundle\texture_payload\manifest.json exists, import only the missing textures from that payload before using ExportMissingTextures.
+  If DryRun reports MissingTextureGuids and Bundle\texture_payload\manifest.json or Bundle\texture_payload_manifest.json exists, import only the missing textures from that payload before using ExportMissingTextures.
   Payload import does not require original UE cooked game data and must not modify the .mat file.
 
 TextureOut=...
@@ -118,16 +118,17 @@ When `ExportMissingTextures` is requested from a workspace directory:
 Missing texture recovery source order:
 
 ```text
-1. Existing Unity texture assets with .meta GUIDs under AssetsRoot / TextureSearchRoot.
-2. Bundle texture_payload/manifest.json, if present.
-3. Original UE cooked game data through explicit ExportMissingTextures.
-4. If none are available, stop and report that missing Unity textures cannot be recovered from this bundle alone.
+1. Bundle-local texture_payload/manifest.json, if present.
+2. Shared workspace Textures/manifest.json plus Bundle/texture_payload_manifest.json, if present.
+3. Existing Unity texture assets with .meta GUIDs under AssetsRoot / TextureSearchRoot.
+4. Original UE cooked game data through explicit ExportMissingTextures.
+5. If none are available, stop and report that missing Unity textures cannot be recovered from this bundle/workspace alone.
 ```
 
 When texture payload exists and DryRun reports `MissingTextureGuids`:
 
 ```text
-1. Read Bundle\texture_payload\manifest.json.
+1. Read Bundle\texture_payload\manifest.json or Bundle\texture_payload_manifest.json.
 2. Copy only textures needed by MissingTextureExportCandidates into Unity Assets.
 3. Copy sidecar JSON files with those textures.
 4. Do not modify the .mat file.
@@ -369,7 +370,7 @@ Use this only after DryRun reports `MissingTextureGuids` and the report contains
 
 Do not run this during `PROMPT_NEXT_SESSION.md` shader reconstruction. Do not combine it with `Apply`.
 
-If the bundle contains `texture_payload/manifest.json`, prefer payload import first:
+If the bundle contains `texture_payload/manifest.json` or `texture_payload_manifest.json`, prefer payload import first. The import tool supports both bundle-local payloads and shared workspace `Textures` payloads:
 
 ```powershell
 python <FModelRepo>\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\import_bundle_texture_payload.py `
@@ -387,7 +388,37 @@ Payload import output:
 <UnityAssetsRoot>\<TextureOut>\Game\...\TextureName.png.ue_texture_export.json
 ```
 
-Only use the cooked-data export command below when the bundle has no payload, when the payload is incomplete, or when the user explicitly wants to regenerate textures from original UE cooked data.
+DryRun reports now include:
+
+```text
+TexturePayloadResolution
+TexturePayloadExportCommandHint
+TextureExportCommandHint
+```
+
+Use `TexturePayloadResolution` to distinguish two cases:
+
+- `PayloadAvailable=true`: import the existing bundle/shared payload into Unity, wait for `.meta` generation, then rerun DryRun.
+- `PayloadAvailable=false`: regenerate the missing payload from original cooked data using `TexturePayloadExportCommandHint`, then import it into Unity and rerun DryRun.
+
+Preferred cooked-data regeneration path is the payload-store command, because it keeps shared `Textures` or bundle-local `texture_payload` consistent:
+
+```powershell
+dotnet run --project CUE4Parse\CUE4Parse.ShaderBundleExporter\CUE4Parse.ShaderBundleExporter.csproj -c Release -- `
+  --export-bundle-texture-payload `
+  --game "GAME_FROM_BUNDLE_MANIFEST" `
+  --paks "PAKS_FROM_BUNDLE_MANIFEST" `
+  --mapping "MAPPING_FROM_BUNDLE_MANIFEST" `
+  --bundle "BUNDLE_DIR" `
+  --restore-report "DRYRUN_REPORT.json" `
+  --payload-scope missing_from_restore_report `
+  --texture-payload-mode shared `
+  --texture-root "<Workspace>\Textures"
+```
+
+Use `--texture-payload-mode bundle` instead when the bundle is intentionally self-contained.
+
+Only use the legacy direct-to-Unity cooked-data export command below when the bundle has no payload workflow, the user explicitly asks to bypass payload storage, or the payload export path is blocked.
 
 Command shape:
 
