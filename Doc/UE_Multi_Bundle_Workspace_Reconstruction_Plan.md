@@ -185,8 +185,9 @@ ContinueOnError=true|false
 Preferred batch export path:
 
 ```text
-1. User provides UnityMatDir=<UnityProject>/Assets/...
-2. Exporter recursively scans *.mat files.
+1. User provides UnityMatDir=<UnityProject>/Assets/... or UnityScene=<UnityProject>/Assets/.../Scene.unity.
+2. For UnityMatDir, exporter recursively scans *.mat files.
+   For UnityScene, exporter scans the scene and referenced Unity text assets/prefabs for material GUIDs and resolves them to .mat files.
 3. Each Assets-relative .mat path is mapped to the matching UE /Game material path.
 4. Exporter writes one bundle per material plus workspace MaterialMap.json.
 5. Batch NoVisual goal can run without a MatMap argument.
@@ -203,6 +204,8 @@ Assets/Art/Environment/Biome/CoralGarden/Rocks/Material/MI_CG_RockPebbles_01a.ma
 Duplicate `.mat` file names are allowed when their Assets-relative paths differ. The exporter should use the path-derived /Game material path for cooked data resolution and a path-derived bundle directory name when needed to avoid collisions.
 
 If the path-derived `/Game/...` material does not exist, the item is not found. A same-name material under another UE folder must not be substituted.
+
+UnityScene mode is a filtered batch export. It should not export every material under a directory; it should export only the `.mat` assets found from the scene dependency scan.
 
 Generated `MaterialMap.json` example:
 

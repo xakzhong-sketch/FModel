@@ -95,6 +95,29 @@ RestoreReport=...
   If omitted, run DryRun first and use the newly generated report.
 ```
 
+## Write Boundary
+
+This Goal may write only the explicitly authorized restore targets:
+
+```text
+DryRun:
+  write restore reports only; do not modify Unity assets.
+
+Apply:
+  write the target Mat=... file only, plus its .meta if CreateIfMissing is explicitly allowed.
+
+ExportMissingTextures:
+  write only missing texture files and sidecar export JSON under TextureOut.
+  TextureOut must be inside the Unity Assets tree and must be an Assets-relative folder.
+  This step must not modify .mat files.
+
+Texture payload import:
+  write only the missing payload textures and sidecar JSON into the chosen Unity texture output folder.
+  This step must not modify .mat files.
+```
+
+Allowed Unity project writes are therefore limited to `Mat=...`, explicitly selected shader assignment metadata, and the specified texture output directory. Do not modify FModel/CUE4Parse exporter source, Doc templates, or other tool repositories while running this restore Goal.
+
 If invoked from a material workspace directory:
 
 ```text

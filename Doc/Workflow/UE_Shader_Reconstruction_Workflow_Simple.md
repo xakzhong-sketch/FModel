@@ -10,6 +10,7 @@
 <Bundle>        导出的 .bundle 目录
 <MaterialName>  UE 材质名，或完整 /Game/... 路径
 <UnityMatDir>   Unity 工程中某个包含 .mat 的目录
+<UnityScene>    Unity 工程中的 .unity 场景文件
 <UnityMat>      Unity 里的目标 .mat
 ```
 
@@ -80,6 +81,12 @@ cd <Workspace>
 /goal <FModelRepo>\Doc\UE_Cooked_Material_Bundle_Export_Goal.md UnityMatDir=<UnityMatDir>
 ```
 
+或者只导出某个场景用到的材质：
+
+```text
+/goal <FModelRepo>\Doc\UE_Cooked_Material_Batch_Export_From_UnityScene_Goal.md UnityScene=<UnityScene>
+```
+
 工具会按相对路径映射：
 
 ```text
@@ -137,9 +144,10 @@ MI_A.bundle\RenderDocCapture\EID_...
 ## 人只需要注意
 
 ```text
-缺贴图：让 AI Agent 按报告优先使用 bundle/shared texture payload，必要时再补导出。
+缺贴图：让 AI Agent 按报告优先使用 bundle/shared texture payload，必要时写入指定的 Unity 贴图输出目录。
 Shader 复用：参数不同不应该新建 Shader；逻辑确实不同才扩展或新建。
 NoVisual：只要求编译通过和完成交接，不做视觉调参。
 视觉验证：有参考图就跑语义验证；没有参考图但场景已摆好就跑轻量 smoke。
 多材质：不要让多个 Agent 同时写同一个 Unity 工程 Assets 目录。
+工具源码：导出/还原阶段不要修改 FModel、CUE4Parse 或 Doc 模板，除非当前目标明确是修工具。
 ```

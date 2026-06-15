@@ -4,6 +4,21 @@ Objective: use `CUE4Parse.ShaderBundleExporter` in `D:\Github\FModel` to export 
 
 Do not reconstruct a Unity shader in this task. Only export, refresh semantic analysis, generate Agent docs, generate batch mapping when applicable, and verify the bundle/workspace.
 
+Write boundary:
+
+```text
+Allowed writes:
+  the requested output bundle or batch workspace;
+  workspace shared Textures payload directory when texture payload is requested;
+  generated Agent docs inside that output workspace.
+
+Not allowed during this export goal:
+  FModel / CUE4Parse exporter source changes;
+  Doc template changes;
+  Unity project Assets changes;
+  material restore, missing texture import, or .mat writes.
+```
+
 This is the lightweight first-step export. It includes shader data, material parameters, texture references, and cooked texture metadata, but it does not include decoded Unity-importable texture image payload files.
 
 If the bundle will be distributed to users or Agents without original UE cooked game data and missing Unity textures must be recoverable from the bundle itself, use the payload export Goal instead:
@@ -28,6 +43,8 @@ Preferred forms:
 /Goal D:\Github\FModel\Doc\UE_Cooked_Material_Bundle_Export_Goal.md Material=/Game/Art/Environment/Biome/CoralGarden/Rocks/Material/MI_CG_RockSmooth_01a Out=K:\WorkSpace\SR1\MI_CG_RockSmooth_01a.bundle
 
 /Goal D:\Github\FModel\Doc\UE_Cooked_Material_Bundle_Export_Goal.md UnityMatDir=K:\WorkSpace\Project_Dive\Assets\Art\Environment
+
+/Goal D:\Github\FModel\Doc\UE_Cooked_Material_Bundle_Export_Goal.md UnityScene=K:\WorkSpace\Project_Dive\Assets\Scenes\Scene.unity
 ```
 
 Argument rules:
@@ -74,6 +91,16 @@ If the user provides UnityMatDir=...:
   after export succeeds, the batch root must contain MaterialMap.json, summary.json, batch_manifest.json, and UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md.
   later batch NoVisual reconstruction should use `/goal UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md` from ROOT_DIR.
 
+If the user provides UnityScene=...:
+  this is batch export mode.
+  record ROOT_DIR as the batch output root.
+  scan the specified Unity .unity scene and referenced Unity text assets/prefabs for material GUIDs.
+  resolve material GUIDs to Unity .mat files.
+  map every Unity .mat Assets-relative path to the exact UE /Game material path.
+  pass UnityScene to the exporter as --unity-scene and ROOT_DIR as --out-root.
+  do not ask the user to prepare MaterialMap.json.
+  after export succeeds, the batch root must contain MaterialMap.json, summary.json, batch_manifest.json, and UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md.
+
 If the user does not provide Out=...:
   if ROOT_DIR is a user workspace directory, write to ROOT_DIR\<MaterialAssetName>.bundle.
   if ROOT_DIR cannot be determined or is a tool/repo directory, stop and ask for Out=....
@@ -92,13 +119,13 @@ If ROOT_DIR contains a RenderDocCapture directory or any RenderDoc drawcall expo
   after the bundle export succeeds, move/copy new RenderDoc drawcall exports under OUTPUT_BUNDLE\RenderDocCapture before running compact summary.
 ```
 
-Batch UnityMatDir rules:
+Batch UnityMatDir / UnityScene rules:
 
 ```text
-If UnityMatDir is present:
+If UnityMatDir or UnityScene is present:
   ignore Material=... and Out=... unless the user explicitly asks for a single bundle export instead.
   require ROOT_DIR to be a user workspace directory.
-  require UnityMatDir to be inside a Unity Assets directory so Assets-relative paths can be derived.
+  require UnityMatDir / UnityScene to be inside a Unity Assets directory so Assets-relative paths can be derived.
   do not write the batch output into D:\Github\FModel.
   pass --include-texture-payload --texture-payload-mode shared unless the user explicitly asks for no payload or bundle-local payload.
   duplicate .mat file names are allowed when their Assets-relative paths are different.
@@ -267,6 +294,28 @@ Later NoVisual reconstruction can be started from `OUTPUT_ROOT` with:
 ```text
 /goal UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md
 ```
+
+## Batch Export From Unity Scene
+
+If the user supplied `UnityScene=...`, replace `UNITY_SCENE` and use `ROOT_DIR` as `OUTPUT_ROOT`:
+
+```powershell
+dotnet run --project CUE4Parse\CUE4Parse.ShaderBundleExporter\CUE4Parse.ShaderBundleExporter.csproj -c Release -- `
+  --game Subnautica2 `
+  --paks "D:\Tmp\Subnautica.2.v.0.10.1.Early.Access\Subnautica2\Subnautica2\Content\Paks" `
+  --mapping "D:\Tmp\Subnautica.2.v.0.10.1.Early.Access\Subnautica2\5.6.1-114707+++Project+SN2-Release-Hotfix-Live-Subnautica2.usmap" `
+  --unity-scene "UNITY_SCENE" `
+  --out-root "OUTPUT_ROOT" `
+  --include-layer-stack `
+  --include-master-modules `
+  --include-texture-payload `
+  --texture-payload-mode shared `
+  --decompress-shader "D:\Github\UEShaderMapExtractor\Build\decompress_shader.exe" `
+  --overwrite `
+  --verbose
+```
+
+The same batch outputs and NoVisual next step apply.
 
 ## Verify Command
 

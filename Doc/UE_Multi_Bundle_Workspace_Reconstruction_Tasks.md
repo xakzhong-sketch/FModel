@@ -428,7 +428,7 @@ Status: DONE
 
 Goal:
 
-Define a stable generated mapping from bundle to Unity `.mat`. The preferred source is `UnityMatDir=...`, not a hand-authored map.
+Define a stable generated mapping from bundle to Unity `.mat`. The preferred sources are `UnityMatDir=...` and `UnityScene=...`, not a hand-authored map.
 
 Files:
 
@@ -443,7 +443,7 @@ Schema:
 ```json
 {
   "schema": "ue-unity-material-map/v1",
-  "generatedFrom": "unity_mat_dir",
+  "generatedFrom": "unity_mat_dir | unity_scene",
   "unityRoot": "<UnityProjectRoot>",
   "items": [
     {
@@ -457,25 +457,27 @@ Schema:
 
 Implementation:
 
-1. Exporter scans `UnityMatDir` recursively for `.mat`.
-2. Convert each `Assets/.../*.mat` path to the exact UE `/Game/...` material path.
-3. Generate `MaterialMap.json` automatically.
-4. Store `mat` as an `Assets/...` relative path when a Unity project root can be inferred.
-5. Allow `UnityRoot=...` override when the workspace is moved to another machine.
-6. Keep `MaterialMap.example.json` as fallback documentation for manual repair only.
-7. Require explicit bundle path per item.
-8. Require explicit `.mat` path per item.
-9. Store `unrealMaterialPath` per item.
-10. Allow duplicate `.mat` file names when their `Assets/...` paths differ.
-11. Use path-derived bundle names when duplicate file names would collide.
-12. Treat a missing path-derived `/Game/...` material as not found even if a same-name material exists elsewhere.
-13. Allow optional tags/filter fields.
-14. Validate duplicate bundle entries.
-15. Validate duplicate mat entries and report warnings.
+1. Exporter scans `UnityMatDir` recursively for `.mat`, or scans `UnityScene` dependencies for material GUIDs.
+2. UnityScene dependency scan follows scene YAML references into prefabs/text Unity assets and importer `.meta` files when useful for material references.
+3. Convert each resolved `Assets/.../*.mat` path to the exact UE `/Game/...` material path.
+4. Generate `MaterialMap.json` automatically.
+5. Store `mat` as an `Assets/...` relative path when a Unity project root can be inferred.
+6. Allow `UnityRoot=...` override when the workspace is moved to another machine.
+7. Keep `MaterialMap.example.json` as fallback documentation for manual repair only.
+8. Require explicit bundle path per item.
+9. Require explicit `.mat` path per item.
+10. Store `unrealMaterialPath` per item.
+11. Allow duplicate `.mat` file names when their `Assets/...` paths differ.
+12. Use path-derived bundle names when duplicate file names would collide.
+13. Treat a missing path-derived `/Game/...` material as not found even if a same-name material exists elsewhere.
+14. Allow optional tags/filter fields.
+15. Validate duplicate bundle entries.
+16. Validate duplicate mat entries and report warnings.
 
 Acceptance:
 
 - `UnityMatDir` batch export writes `MaterialMap.json`.
+- `UnityScene` batch export writes `MaterialMap.json` for only the scene-used materials found by dependency scan.
 - Duplicate Unity `.mat` file names in different folders resolve through their `Assets/... -> /Game/...` paths.
 - Batch NoVisual can run from the workspace with no `MatMap=...` argument.
 - Invalid map fails before any Unity writes.

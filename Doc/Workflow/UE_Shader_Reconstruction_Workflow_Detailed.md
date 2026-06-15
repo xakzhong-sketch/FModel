@@ -10,6 +10,7 @@
 <Bundle>          某个导出的 *.bundle 目录
 <MaterialName>    UE 材质名，或者完整 /Game/... 路径
 <UnityMatDir>     Unity 工程中某个包含 .mat 的目录
+<UnityScene>      Unity 工程中的 .unity 场景文件
 <UnityMat>        Unity 里的目标 .mat 文件
 ```
 
@@ -43,7 +44,7 @@
 
 ```text
 1. cd <Workspace>
-2. 指定 Unity 材质目录，批量导出所有 .mat 对应的 bundle
+2. 指定 Unity 材质目录，或指定一个 Unity 场景，批量导出相关 .mat 对应的 bundle
 3. 导出器自动生成 MaterialMap.json
 4. 运行 batch NoVisual goal
 5. 检查 batch 总结
@@ -159,6 +160,14 @@ Assets/Art/Environment/Biome/CoralGarden/Rocks/Material/MI_CG_RockPebbles_01a.ma
 /goal <FModelRepo>\Doc\UE_Cooked_Material_Bundle_Export_Goal.md UnityMatDir=<UnityMatDir>
 ```
 
+如果只想导出某个 Unity 场景实际用到的材质，指定场景文件：
+
+```text
+/goal <FModelRepo>\Doc\UE_Cooked_Material_Batch_Export_From_UnityScene_Goal.md UnityScene=<UnityScene>
+```
+
+场景模式会扫描 `.unity` 场景以及引用到的 prefab / Unity 文本资产，找到其中使用的 `.mat`，再按同样的 `Assets/... -> /Game/...` 规则导出。
+
 导出后，workspace 里应该类似：
 
 ```text
@@ -237,7 +246,7 @@ batch 完成后，人的检查重点是：
 /goal <FModelRepo>\Doc\UE_Unity_Material_Property_Restore_Goal.md Apply Mat=<UnityMat> Bundle=<Bundle>
 ```
 
-如果 DryRun 提示缺贴图，不需要人工去看底层 JSON。让 AI Agent 按报告优先使用 bundle/shared texture payload；如果 payload 不存在，再从原始 cooked 数据补导出贴图。等 Unity 导入贴图并生成 `.meta` 后，再重新 DryRun，最后 Apply。
+如果 DryRun 提示缺贴图，不需要人工去看底层 JSON。让 AI Agent 按报告优先使用 bundle/shared texture payload；如果 payload 不存在，再从原始 cooked 数据补导出贴图。缺贴图恢复允许写入明确指定的 Unity 贴图输出目录，例如 `TextureOut=Assets/...`，但不允许顺手修改导出工具源码或其他工具目录。等 Unity 导入贴图并生成 `.meta` 后，再重新 DryRun，最后 Apply。
 
 ## 5. 视觉验证和效果对齐
 
@@ -314,5 +323,5 @@ AI Agent 在还原时会根据 bundle 内分析结果判断：
 ```text
 如果 workspace 已经是 Git 仓库，可以用它看 diff 和回退。
 不要在 Unity 工程里新建 .git。
-不要让多个 Agent 同时改同一个 Unity 工程目录。
+不要让多个 Agent 同时写同一个 Unity 工程 Assets 目录。材质还原时允许写目标 .mat、指定 TextureOut 贴图目录、必要的 shader/验证工具目录；其他 Unity Assets 不应被扫描或修改。
 ```

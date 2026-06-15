@@ -10,7 +10,7 @@ This goal runs the no-visual reconstruction stage for multiple materials. It mus
 MatMap=MaterialMap.json
 ```
 
-`MatMap=...` is optional. If it is omitted, default to `MaterialMap.json` in the current workspace root. Batch exports created from `UnityMatDir=...` should already contain this file, so the common invocation is:
+`MatMap=...` is optional. If it is omitted, default to `MaterialMap.json` in the current workspace root. Batch exports created from `UnityMatDir=...` or `UnityScene=...` should already contain this file, so the common invocation is:
 
 ```text
 /goal UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md
@@ -39,7 +39,7 @@ Default write behavior is read-only audit/handoff. Shader generation, material r
 3. `summary.json`
 4. `MaterialMap.json`
 
-If `MaterialMap.json` is missing, inspect `batch_manifest.json` and `summary.json` only to explain what is missing. Do not guess bundle-to-material mappings. Ask for `MatMap=...` or rerun batch export with `UnityMatDir=...`.
+If `MaterialMap.json` is missing, inspect `batch_manifest.json` and `summary.json` only to explain what is missing. Do not guess bundle-to-material mappings. Ask for `MatMap=...` or rerun batch export with `UnityMatDir=...` / `UnityScene=...`.
 
 ## MaterialMap Schema
 
@@ -72,6 +72,8 @@ Rules:
 
 - Serialize all Unity project writes.
 - Do not spawn multiple write-capable sub-agents against the same Unity `Assets` tree.
+- Allowed Unity writes are limited to generated/reused shader files, validation helper files, explicit material restore targets, and explicit missing-texture output directories such as `TextureOut=Assets/...`.
+- Do not modify FModel/CUE4Parse exporter source, Doc templates, or other tool repositories while executing this reconstruction/export workflow.
 - Do not run `UE_Unity_Material_Semantic_Visual_Validation_Goal.md`.
 - Do not run `UE_Unity_Material_Lightweight_Visual_Smoke_Goal.md`.
 - Do not run `UE_RenderDoc_Compact_Summary_Goal.md`.
