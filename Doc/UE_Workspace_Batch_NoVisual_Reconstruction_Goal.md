@@ -22,15 +22,40 @@ Optional:
 UnityRoot=<UnityProjectRoot>
 Filter=<bundle-name-or-substring>
 ContinueOnError=true|false
-RunGenerator=true|false
-RunRestoreDryRun=true|false
-RunCompileCheck=true|false
-UnityExe=<Unity Editor executable>
 Apply=true|false
+UnityExe=<Unity Editor executable, manual override only>
 ```
 
-Default `ContinueOnError` is `false`.
-Default write behavior is read-only audit/handoff. Shader generation, material restore, and `.mat` writes require explicit user intent in the current `/goal` invocation.
+Default `ContinueOnError` is `true`.
+
+Running this Goal is explicit authorization for the NoVisual write set:
+
+```text
+shader/module generation
+static module/function coverage audit
+material restore DryRun/report generation
+Unity shader import/compile check
+validation helper install/update
+per-bundle handoff/report generation
+```
+
+It does not authorize `.mat` Apply, visual validation, RenderDoc analysis, screenshot capture, semantic GBuffer capture, lightweight smoke validation, FModel/CUE4Parse source edits, or Doc template edits.
+
+`UnityRoot=...` is only required when `MaterialMap.json` does not contain a valid local Unity project root, or when the workspace was moved to another machine. The compile check must read `ProjectSettings/ProjectVersion.txt` from that Unity project and use the matching Unity editor version. Do not pick a different Unity version just because it exists on the machine. `UnityExe=...` is a manual override/fallback, not the normal path.
+
+The common first pass is DryRun-only and does not replace shaders on Unity `.mat` files:
+
+```text
+/goal UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md
+```
+
+After the first pass reports clean compile/import status, the explicit Apply pass is:
+
+```text
+/goal UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md Apply
+```
+
+Apply mode writes the mapped Unity `.mat` files and updates their shader references/material values. It must be skipped for any bundle whose shader compile/import evidence is missing or failed, whose DryRun reports unresolved `MissingTextureGuids`, or whose shader reassignment would skip missing Unity material properties.
 
 ## First Read
 
@@ -99,33 +124,98 @@ The repository helper is:
 ```powershell
 python <FModelRepo>\CUE4Parse\CUE4Parse.ShaderBundleExporter\Tools\workspace_batch_no_visual.py `
   --workspace . `
+  --run-generator `
+  --run-restore-dryrun `
+  --run-compile-check `
+  --add-missing `
+  --continue-on-error `
   --require-compile-success
 ```
 
-Default helper mode is read-only audit: it validates workspace `MaterialMap.json`, inspects existing per-bundle NoVisual artifacts, writes/refreshes handoff summaries, and writes the workspace batch report. It does not generate shaders, restore `.mat` files, capture screenshots, run RenderDoc, or run visual validation.
+Default Goal mode runs the full NoVisual stage: it validates workspace `MaterialMap.json`, verifies bundles, generates or reuses Unity shaders/modules, audits static module/function coverage from cooked evidence, runs material restore DryRun with missing Unity properties included in the report, imports missing textures from bundle/shared texture payloads when available, refreshes Unity so `.meta` files are generated, reruns DryRun, installs/updates the validation helper, runs Unity shader import/compile checks, writes per-bundle handoff summaries, and writes the workspace batch report. It does not apply `.mat` writes, capture screenshots, run RenderDoc, or run visual validation.
 
-Explicit automation flags:
+Advanced helper flags:
 
 ```text
 --run-generator
 --overwrite-generated
 --run-restore-dryrun
---run-compile-check --unity-exe <Unity.exe>
+--run-compile-check
+--unity-exe <Unity.exe>
 --apply --apply-confirm WRITE_MAT
 --add-missing
+--no-add-missing
+--skip-texture-payload-import
+--texture-out <Assets/...>
+--overwrite-textures
+--allow-scaffold-success
 --continue-on-error
 --filter <text>
 ```
 
 Rules:
 
-- Use `--run-generator` only when the goal is allowed to write generated Unity shader/module files.
 - Use `--run-restore-dryrun` to produce/update `analysis/unity_material_restore_report.json` without writing `.mat`.
-- Use `--run-compile-check --unity-exe <Unity.exe>` to run Unity batchmode `SN2ShaderValidation.Run` and write `analysis/unity_shader_compile_report.json`.
-  The helper must install `CUE4Parse/CUE4Parse.ShaderBundleExporter/Tools/unity_shader_validation/SN2ShaderValidation.cs.txt` into `Assets/Editor/ShaderReverse/Validation/SN2ShaderValidation.cs` if the Unity project does not already have the current runner. Do not hand-author a replacement validation script during batch reconstruction.
-- Use `--apply --apply-confirm WRITE_MAT` only when the current `/goal` invocation explicitly asks to apply material values.
+- Use `--run-compile-check` to run Unity batchmode `SN2ShaderValidation.Run` and write `analysis/unity_shader_compile_report.json`.
+  The helper must read the Unity editor version from `<UnityRoot>/ProjectSettings/ProjectVersion.txt` and use that matching editor install. It must install `CUE4Parse/CUE4Parse.ShaderBundleExporter/Tools/unity_shader_validation/SN2ShaderValidation.cs.txt` into `Assets/Editor/ShaderReverse/Validation/SN2ShaderValidation.cs` if the Unity project does not already have the current runner. Do not hand-author a replacement validation script during batch reconstruction.
+- Use `--unity-exe <Unity.exe>` only as an explicit manual fallback when the matching editor cannot be found from the Unity project version.
+- Batch material restore passes `--add-missing` by default so newly generated shader properties are actually written to the `.mat`. Use `--no-add-missing` only for audit/debugging.
+- If DryRun reports `MissingTextureGuids` and the bundle has `texture_payload/manifest.json`, `texture_payload_manifest.json`, or workspace shared `Textures/manifest.json`, the helper should automatically run `import_bundle_texture_payload.py`, copy only the missing payload textures to `--texture-out` (default `Assets/Art/Recovered/Subnautica2`), refresh Unity to generate `.meta`, and rerun DryRun before Apply.
+- Use `--skip-texture-payload-import` only when the user wants to inspect missing texture reports without writing imported texture files.
+- Use `--overwrite-textures` only when replacing already imported payload files is intended.
+- Use `--apply --apply-confirm WRITE_MAT` only when the current `/goal` invocation explicitly asks to apply material values. The helper must not apply a `.mat` unless compile/import evidence is successful and texture GUIDs are resolved. If `MissingTextureGuids` or `TextureExportNeeded=true` appears in the DryRun report, export/import those textures and wait for Unity `.meta` files before Apply.
+- Use `--allow-scaffold-success` only for an intentional low-fidelity batch scaffold pass. It allows static-incomplete items to count as success, but the report must still show `StaticReconstructionCoverageStatus`.
 - Keep Unity writes serialized; do not run multiple helper instances against the same Unity project.
 - The helper writes command logs under `<Bundle>/analysis/batch_no_visual/` with command, exit code, stdout bytes, and stderr bytes.
+
+## Static Reconstruction Bar
+
+NoVisual is not a compile-only scaffold. It does not prove final visual parity, but it must still cover static cooked evidence before a bundle can be called successful.
+
+Before declaring success, inspect:
+
+```text
+analysis/unity_layer_reconstruction_contract.json
+analysis/material_layer_stack.json
+analysis/material_layer_parameter_bindings.json
+analysis/material_static_permutation.json
+analysis/material_function_dependencies.json
+analysis/module_formula_evidence.json
+analysis/dxil_formula_evidence.json
+analysis/curve_atlas_metadata.json
+source/material.cooked.json
+source/material_functions/*.cooked.json
+```
+
+For every evidenced Master/Layer/Blend/MaterialFunction/static feature, the output must classify it as:
+
+```text
+implemented
+approximated_with_reason
+deferred_with_missing_evidence
+renderer_only_or_unity_substitute
+```
+
+The helper writes this classification summary to:
+
+```text
+<Bundle>/analysis/unity_no_visual_reconstruction_summary.json
+  StaticReconstructionCoverage
+  StaticReconstructionCoverageStatus
+```
+
+If cooked evidence names visible features such as `MB_MaskID` height-aware blending, `MB_VertexColorOverlay`, `MaterialExpressionVertexColor`, `ML_LayerCustomPrim_CurveGradient`, `MF_Project_CPD_Packed`, CPD parameters, `NormalFromHeightMap`, curve/gradient atlas data, or `bHasWorldPosition`, the Agent must not silently ignore them. Implement them from available static evidence where possible. If they cannot be implemented without visual/runtime evidence, mark the bundle `needs_input` / `needs_static_reconstruction` and write the exact missing evidence and expected visual impact.
+
+Do not mark a bundle `success` just because:
+
+```text
+the shader compiles
+Properties exist
+textures bind
+.mat DryRun or Apply succeeded
+```
+
+Those are necessary gates, not sufficient reconstruction completion.
 
 ## Per-Bundle Procedure
 
@@ -149,17 +239,19 @@ For each bundle:
    - `analysis/unity_shader_assignment.json`
 3. Reconstruct or reuse the Unity shader.
    Treat the shader reuse decision as provisional until semantic visual validation or stronger runtime/DXIL evidence confirms it. If later validation invalidates `reuse_existing`, upgrade the follow-up path to `extend_existing` or `create_new` and record evidence/regression risk instead of broad-patching a shared shader for one MI.
-4. Run material restore DryRun.
-5. Resolve missing texture GUIDs through:
+4. Produce a static reconstruction coverage summary. If coverage is `needs_static_reconstruction`, continue writing reports for handoff but do not call the bundle successful.
+5. Run material restore DryRun.
+6. Resolve missing texture GUIDs through:
    - bundle-local `texture_payload/manifest.json`;
    - shared workspace `Textures/manifest.json` with bundle `texture_payload_manifest.json`;
    - existing Unity project texture assets;
    - explicit missing texture export from original game data.
-6. Apply material values only after DryRun is clean and the current goal invocation explicitly permits Apply.
-7. Prove Unity shader import/compile succeeds.
-8. Write per-bundle handoff reports.
+   The batch helper must import available bundle/shared payloads automatically before asking for original cooked game data.
+7. Apply material values only after DryRun is clean, all required texture `.meta` GUIDs are resolved, static coverage is not blocking, and the current goal invocation explicitly permits Apply.
+8. Prove Unity shader import/compile succeeds.
+9. Write per-bundle handoff reports.
 
-When the helper is used in read-only audit mode, it may only mark a bundle `success` if the required compile/import and restore reports already exist and are successful. Otherwise it must mark the bundle `needs_input` or `failed`.
+If an Agent intentionally runs the helper without the NoVisual automation flags for audit/debugging, it may only mark a bundle `success` if the required compile/import and restore reports already exist and are successful. Otherwise it must mark the bundle `needs_input` or `failed`.
 
 ## Required Per-Bundle Outputs
 
@@ -179,6 +271,8 @@ When the helper is used in read-only audit mode, it may only mark a bundle `succ
 - Unity `.mat` path;
 - generated or reused Unity shader path;
 - shader reuse decision;
+- static reconstruction coverage status;
+- implemented/approximated/deferred module and feature list;
 - compile/import result;
 - restored parameter count;
 - unresolved parameters;

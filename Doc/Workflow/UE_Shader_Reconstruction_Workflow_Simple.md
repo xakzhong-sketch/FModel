@@ -114,6 +114,28 @@ Assets/.../MI_Name.mat -> /Game/.../MI_Name
 /goal UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md
 ```
 
+这一步默认会生成 shader、做材质 DryRun、自动从 bundle/shared texture payload 导入缺失贴图、跑 Unity 编译检查并输出交接文档；不做视觉验证，也不会 Apply 写 `.mat`。Unity 版本从目标工程的 `ProjectSettings/ProjectVersion.txt` 读取。
+
+batch 报告里的 `StaticReconstructionCoverageStatus` 如果是 `needs_static_reconstruction`，表示当前只是可编译 scaffold，导出数据里已有的模块/功能还没完整覆盖，不能当成还原完成。
+
+缺失贴图默认导入到：
+
+```text
+Assets/Art/Recovered/Subnautica2
+```
+
+导入后会刷新 Unity 生成 `.meta`，再重新 DryRun。
+
+如果要真正替换 Unity 工程里的 `.mat` shader，再跑：
+
+```text
+/goal UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md Apply
+```
+
+没有编译成功证据、还有 `MissingTextureGuids`、或贴图还没导入 Unity 生成 `.meta` 的 bundle 不应该 Apply。
+
+如果手动 Apply 后贴图全是 `None`，先还原 `.mat` 的 `.bak` / 版本库，再补贴图并重新 Apply。
+
 换机器后 Unity 工程路径不同，就加：
 
 ```text
@@ -146,7 +168,7 @@ MI_A.bundle\RenderDocCapture\EID_...
 ```text
 缺贴图：让 AI Agent 按报告优先使用 bundle/shared texture payload，必要时写入指定的 Unity 贴图输出目录。
 Shader 复用：参数不同不应该新建 Shader；逻辑确实不同才扩展或新建。
-NoVisual：只要求编译通过和完成交接，不做视觉调参。
+NoVisual：不做视觉调参，但不能只是能编译；要覆盖导出数据里已有的 Layer / Blend / Function / static feature 证据。覆盖不足时应标成 `needs_static_reconstruction`。
 视觉验证：有参考图就跑语义验证；没有参考图但场景已摆好就跑轻量 smoke。
 多材质：不要让多个 Agent 同时写同一个 Unity 工程 Assets 目录。
 工具源码：导出/还原阶段不要修改 FModel、CUE4Parse 或 Doc 模板，除非当前目标明确是修工具。

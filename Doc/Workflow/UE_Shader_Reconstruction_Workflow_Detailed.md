@@ -109,6 +109,7 @@ NoVisual 是“不做视觉验证”的第一轮还原。它应该完成：
 
 ```text
 Shader 结构还原
+静态模块/功能覆盖审计
 必要的模块复用或新增
 Unity Shader 编译检查
 Unity 材质属性恢复
@@ -123,6 +124,21 @@ RenderDoc 分析
 GBuffer capture
 主观视觉调参
 ```
+
+NoVisual 不是“能编译就完成”。如果导出数据里已经明确出现 Layer / Blend / MaterialFunction / static feature 证据，就必须在 shader/module 中实现，或者在报告中明确标记为近似/延后，并说明缺失证据和视觉影响。
+
+典型需要覆盖的静态证据包括：
+
+```text
+MB_MaskID / Height Contrast / Height Power / Color ID
+MB_VertexColorOverlay / MaterialExpressionVertexColor / Vertex Paint 参数
+ML_LayerCustomPrim_CurveGradient / MF_Project_CPD_Packed / CPD_* 参数
+NormalFromHeightMap
+Gradient Curve / Curve_Base_Atlas / HistogramScan
+bHasWorldPosition / WorldPosition 相关逻辑
+```
+
+如果这些证据存在，但当前 shader 只是简化 scaffold，batch 报告应标记为 `needs_static_reconstruction` / `needs_input`，不能叫还原完成。
 
 ### 单材质
 
@@ -186,6 +202,34 @@ Assets/Art/Environment/Biome/CoralGarden/Rocks/Material/MI_CG_RockPebbles_01a.ma
 ```text
 /goal UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md
 ```
+
+这一步默认会串行执行 shader/module 生成、材质恢复 DryRun、缺失贴图 payload 导入、Unity Shader 编译检查和交接文档生成。它不会做视觉验证，也不会 Apply 写 `.mat`。Unity 版本会从目标工程的 `ProjectSettings/ProjectVersion.txt` 读取，不需要手动指定 Unity 安装路径。
+
+batch 报告里还会输出静态覆盖状态：
+
+```text
+StaticReconstructionCoverageStatus
+```
+
+如果是 `needs_static_reconstruction`，说明 shader 可编译但导出数据里已有的关键模块/功能还没覆盖，后续应先补 shader/module 逻辑，再做 Apply 或视觉验证。
+
+如果 DryRun 发现 `MissingTextureGuids`，并且 bundle 内 `texture_payload` 或 workspace 共享 `Textures` 里有对应 payload，batch helper 会自动把缺失贴图拷贝到 Unity 工程默认目录：
+
+```text
+Assets/Art/Recovered/Subnautica2
+```
+
+然后触发 Unity 刷新生成 `.meta`，再重新 DryRun。只有重新 DryRun 后贴图 GUID 能解析，后续 Apply 才允许继续。
+
+如果检查报告确认没有 shader 编译错误，并且要真正把 Unity 工程里的 `.mat` 切到还原出来的 shader，再显式跑 Apply：
+
+```text
+/goal UE_Workspace_Batch_NoVisual_Reconstruction_Goal.md Apply
+```
+
+Apply 会写入 `MaterialMap.json` 里映射的 `.mat`，但仍然不做视觉验证。没有成功编译证据、DryRun 里还有 `MissingTextureGuids`、或贴图还没有导入 Unity 生成 `.meta` 的 bundle 应跳过 Apply。
+
+如果已经手动 Apply 过，发现 `.mat` 的 shader 被替换但贴图都是 `None`，通常说明 Apply 时贴图 GUID 没解析到，或者没有补齐新 shader 的缺失属性。先从 `.bak` / git / SVN 还原 `.mat`，再补贴图、等待 Unity 生成 `.meta`，最后重新跑 Apply。
 
 如果导出的工作区被分发到另一台机器，Unity 工程路径不同，运行时补 `UnityRoot=...`：
 
